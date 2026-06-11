@@ -1303,7 +1303,12 @@ async function executeNextTurn() {
             contentEl.classList.remove('streaming');
             contentEl.innerHTML = marked.parse(fullContent);
 
-            state.debateData.messages.push({ speaker: activeSpeaker, content: fullContent });
+            state.debateData.messages.push({ 
+              speaker: activeSpeaker, 
+              content: fullContent,
+              model: model,
+              endpoint: endpoint
+            });
             state.countA = data.countA;
             state.countB = data.countB;
             renderProgress();
