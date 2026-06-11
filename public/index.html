@@ -893,6 +893,17 @@
       <div class="verdict-reasoning" id="verdictReasoning"></div>
     </div>
 
+    <!-- Debate Transcript Toggle -->
+    <div class="card" style="margin-top: 20px;">
+      <h2><span class="icon">📜</span> Debate Transcript</h2>
+      <button class="btn btn-secondary" id="btnToggleTranscript" style="width: 100%;">
+        👁️ Show/Hide Debate Transcript
+      </button>
+      <div id="transcriptContainer" class="hidden" style="margin-top: 16px;">
+        <div class="debate-stream" id="transcriptStream"></div>
+      </div>
+    </div>
+
     <div class="btn-row" style="justify-content: center; margin-top: 24px;">
       <button class="btn btn-primary" id="btnNewDebate">
         🔄 Start New Debate
@@ -1482,7 +1493,60 @@ async function runVerdict(judgeModel, endpointJudge) {
     if (vr) { vr.classList.remove('streaming'); vr.textContent = 'Connection error'; }
     showToast('Network error: ' + err.message, 'error');
   }
+
+  // Render transcript
+  renderTranscript();
 }
+
+// ─── Render Transcript ─────────────────────────────────────
+function renderTranscript() {
+  const container = $('transcriptContainer');
+  const stream = $('transcriptStream');
+  const btn = $('btnToggleTranscript');
+  
+  if (!stream || !container) return;
+  
+  if (state.debateData && state.debateData.messages && state.debateData.messages.length > 0) {
+    container.classList.remove('hidden');
+    stream.innerHTML = '';
+    
+    state.debateData.messages.forEach(msg => {
+      const msgDiv = document.createElement('div');
+      msgDiv.className = `message side-${msg.speaker.toLowerCase()}`;
+      const speakerLabel = msg.speaker === 'A' ? 'Side A (TRUE)' : 'Side B (FALSE)';
+
+      msgDiv.innerHTML = `
+        <div class="message-header">
+          <span class="message-label">${speakerLabel}</span>
+          <div class="message-meta">
+            <span class="message-model">${msg.model || 'N/A'}</span>
+            <span class="message-endpoint">${msg.endpoint || 'N/A'}</span>
+          </div>
+        </div>
+        <div class="message-content">${marked.parse(msg.content)}</div>
+      `;
+      stream.appendChild(msgDiv);
+    });
+    
+    btn.textContent = '🙈 Hide Debate Transcript';
+  } else {
+    container.classList.add('hidden');
+    btn.textContent = '👁️ Show/Hide Debate Transcript';
+  }
+}
+
+// ─── Toggle Transcript Visibility ──────────────────────────
+$('btnToggleTranscript').onclick = () => {
+  const container = $('transcriptContainer');
+  const btn = $('btnToggleTranscript');
+  
+  if (container.classList.contains('hidden')) {
+    renderTranscript();
+  } else {
+    container.classList.add('hidden');
+    btn.textContent = '👁️ Show/Hide Debate Transcript';
+  }
+};
 
 // ─── Reset ──────────────────────────────────────────────────
 function resetToSetup() {
