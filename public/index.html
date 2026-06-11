@@ -33,7 +33,8 @@
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
     background: var(--bg);
     color: var(--text);
-    min-height: 100vh;
+    height: 100vh;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
   }
@@ -62,18 +63,24 @@
     margin: 0 auto;
     padding: 24px;
     flex: 1;
-    overflow-y: auto;
+    overflow: hidden;
   }
 
   /* Phase screens */
   .phase { display: none; }
-  .phase.active { display: flex; flex-direction: column; }
+  /* All phases fill .container; non-debate phases scroll internally */
+  .phase.active {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow-y: auto;
+  }
 
-  /* Debate phase fills viewport, stream takes remaining space */
+  /* Debate phase: flex container, scroll handled by .debate-stream */
   .phase-debate.active {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 56px);
+    height: 100%;
     overflow: hidden;
   }
 
@@ -86,16 +93,14 @@
     flex-shrink: 0;
   }
 
-  /* Verdict phase fills viewport too */
+  /* Verdict phase: scrolls within itself */
   .phase-verdict.active {
-    height: calc(100vh - 56px);
-    overflow-y: auto;
+    /* inherits height: 100% and overflow-y: auto from .phase.active */
   }
 
-  /* Judge-select phase */
+  /* Judge-select phase: scrolls within itself */
   .phase-judge-select.active {
-    height: calc(100vh - 56px);
-    overflow-y: auto;
+    /* inherits height: 100% and overflow-y: auto from .phase.active */
   }
 
   /* Cards */
