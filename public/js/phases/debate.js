@@ -91,6 +91,7 @@ async function executeNextTurn() {
       contentEl.textContent = `Server error (${res.status}): ${errBody}`;
       contentEl.style.color = '#e74c3c';
       showToast(`Server error (${res.status}): ${errBody}`, 'error');
+      if (appState.ttsEnabled) { stopDebateAudio(); }
       appState.isStreaming = false;
       updateDebateStatus();
       showRetryTurn();
@@ -115,9 +116,19 @@ async function executeNextTurn() {
             fullContent += data.content;
             contentEl.innerHTML = marked.parse(fullContent);
             scrollToBottom();
+
+            // Feed text to TTS for real-time audio
+            if (appState.ttsEnabled) {
+              feedAudioText(data.content, activeSpeaker);
+            }
           } else if (data.type === 'done') {
             contentEl.classList.remove('streaming');
             contentEl.innerHTML = marked.parse(fullContent);
+
+            // Flush remaining TTS buffer
+            if (appState.ttsEnabled) {
+              finishDebateAudio(activeSpeaker);
+            }
 
             appState.debateData.messages.push({
               speaker: activeSpeaker,
@@ -158,6 +169,7 @@ async function executeNextTurn() {
             contentEl.textContent = `Error: ${data.error}`;
             contentEl.style.color = '#e74c3c';
             showToast('Error: ' + data.error, 'error');
+            if (appState.ttsEnabled) { await finishDebateAudio(activeSpeaker); }
             appState.isStreaming = false;
             updateDebateStatus();
             showRetryTurn();
@@ -171,6 +183,7 @@ async function executeNextTurn() {
     contentEl.textContent = 'Connection error';
     contentEl.style.color = '#e74c3c';
     showToast('Network error: ' + err.message, 'error');
+    if (appState.ttsEnabled) { stopDebateAudio(); }
     appState.isStreaming = false;
     updateDebateStatus();
     showRetryTurn();
@@ -193,6 +206,7 @@ function hideRetryTurn() {
 function initDebatePhase() {
   $('btnAbortDebate').onclick = () => {
     if (confirm('Abort this debate?')) {
+      stopDebateAudio();
       appState.debateId && appApi.deleteDebate(appState.debateId);
       resetToSetup();
     }

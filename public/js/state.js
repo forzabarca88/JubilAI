@@ -14,4 +14,9 @@ const appState = {
   maxTurns: 3,
   isStreaming: false,
   autoJudge: false,
+
+  // TTS state
+  ttsEnabled: false,
+  ttsSpeakerVoices: {},
+  ttsActiveSpeaker: null,
 };

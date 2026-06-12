@@ -671,3 +671,67 @@
     .container { padding: 16px; }
     .card { padding: 16px; }
   }
+
+  /* ═══════════════════════════════════════════════════════ */
+  /* TTS Controls                                          */
+  /* ═══════════════════════════════════════════════════════ */
+  .tts-controls {
+    margin-top: 12px;
+    padding: 12px 16px;
+    background: var(--surface2);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+
+  .tts-button-group {
+    display: flex;
+    gap: 8px;
+  }
+
+  .tts-btn {
+    padding: 6px 14px;
+    font-size: 0.85rem;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+    font-weight: 600;
+  }
+
+  .tts-btn:hover:not(:disabled) {
+    opacity: 0.85;
+    transform: translateY(-1px);
+  }
+
+  .tts-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .tts-btn.enabled {
+    background: var(--side-a);
+  }
+
+  .tts-btn.playing {
+    background: var(--judge);
+    color: var(--bg);
+  }
+
+  .tts-status {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-top: 6px;
+    min-height: 1.2em;
+  }
+
+  .tts-status.loading {
+    color: var(--accent);
+  }
+
+  .tts-status.active {
+    color: var(--side-a);
+  }

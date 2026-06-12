@@ -178,6 +178,17 @@ function initSetupPhase() {
       renderDebateProgress();
       showPhase('phase-debate');
       updateDebateStatus();
+
+      // Initialize TTS with random voices (non-blocking — debate proceeds even if TTS fails)
+      appState.ttsEnabled = true;
+      try {
+        await startDebateAudio(appState.debateId);
+      } catch (err) {
+        console.warn('[TTS] Initialization failed, continuing without audio:', err.message);
+        appState.ttsEnabled = false;
+      }
+      updateTTSEnableButton();
+
       const autoMsg = appState.autoJudge ? ' (auto-judge enabled)' : '';
       showToast(`Debate started! Turns advance automatically.${autoMsg}`, 'success');
 

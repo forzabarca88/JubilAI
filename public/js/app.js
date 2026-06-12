@@ -2,6 +2,9 @@
  * Reset all state and UI back to the setup phase.
  */
 function resetToSetup() {
+  // Stop any playing TTS audio
+  stopDebateAudio();
+
   appState.debateId = null;
   appState.debateData = null;
   appState.currentSpeaker = null;
@@ -9,6 +12,14 @@ function resetToSetup() {
   appState.countB = 0;
   appState.isStreaming = false;
   appState.autoJudge = false;
+
+  // Reset TTS state
+  appState.ttsEnabled = false;
+  appState.ttsSpeakerVoices = {};
+  appState.ttsActiveSpeaker = null;
+
+  // Update TTS UI
+  updateTTSEnableButton();
 
   // Reset Side A
   const mA = $('modelA');

@@ -13,14 +13,15 @@
 
 ## Frontend Module Loading Order
 Scripts in `public/index.html` are loaded in this strict order:
-1. `js/state.js` — Global `appState` object (models, debate data, turn counts, streaming flag)
+1. `js/state.js` — Global `appState` object (models, debate data, turn counts, streaming flag, TTS state)
 2. `js/dom-helpers.js` — `$()` helper with null guard, `showPhase()`, `showToast()`, scroll helpers
 3. `js/api.js` — Global `appApi` object wrapping all fetch calls to `/api/*` endpoints
-4. `js/phases/setup.js` — Model fetching, readiness checks, debate creation
-5. `js/phases/debate.js` — Turn execution, streaming display, progress tracking, auto-advance
-6. `js/phases/judge-select.js` — Shown only when judge was NOT pre-configured in setup
-7. `js/phases/verdict.js` — Verdict streaming, transcript rendering, markdown export
-8. `js/app.js` — `resetToSetup()` function that resets all state and DOM
+4. `js/tts-manager.js` — Real-time TTS using Transformers.js (sentence batching, audio queue, random voice assignment)
+5. `js/phases/setup.js` — Model fetching, readiness checks, debate creation, TTS initialization
+6. `js/phases/debate.js` — Turn execution, streaming display, progress tracking, auto-advance, TTS text feeding
+7. `js/phases/judge-select.js` — Shown only when judge was NOT pre-configured in setup
+8. `js/phases/verdict.js` — Verdict streaming, transcript rendering, markdown export, TTS for judge voice
+9. `js/app.js` — `resetToSetup()` function that resets all state and DOM
 
 ## SSE Streaming Protocol
 All streaming endpoints (debate turns, verdicts) use Server-Sent Events with this JSON format:
@@ -60,17 +61,31 @@ Defined in `src/utils/prompts.js`:
 - `MOCK_DEBATE_CONTENT.B`: 3 mock arguments for Side B
 - `MOCK_DEBATE_CONTENT.judge`: Mock verdict (always declares Side B winner)
 
+## Text-to-Speech (Implemented)
+- `js/tts-manager.js`: `RealtimeTTSManager` class using `kokoro-js@1.2.1` via jsdelivr CDN
+- Model: `onnx-community/Kokoro-82M-v1.0-ONNX` (publicly accessible ONNX weights, no auth required). kokoro-js bundles `@huggingface/transformers@3.5.1`
+- **Voice pool**: 32 Kokoro voices (11 American English female, 11 American English male, 5 British English female, 4 British English male). 3 random distinct voices assigned to Side A, Side B, and Judge
+- **Streaming TTS**: Text chunks are buffered and segmented at sentence boundaries (`.`, `!`, `?`, `\n`). Each complete sentence generates audio via `kokoro.generate()` and is queued for sequential playback
+- **Audio queue**: Sentences play sequentially through Web Audio API. New sentences can be queued while previous audio plays
+- **Controls**: Toggle button (enable/disable) and stop button in debate phase. Status shows assigned voice IDs
+- **State**: `appState.ttsEnabled`, `appState.ttsSpeakerVoices`, `appState.ttsActiveSpeaker`
+- **Global functions**: `startDebateAudio()`, `feedAudioText()`, `finishDebateAudio()`, `stopDebateAudio()`
+- **Integration**: Auto-enabled on debate start. TTS feeds text during debate turns (Side A/B voices) and verdict (Judge voice). Error/abort/catch handlers flush TTS buffers and stop audio.
+- **First-use note**: Model downloads ~100MB (q8 quantized) on first use, cached by browser thereafter
+- **Graceful fallback**: Debate proceeds normally if TTS initialization fails
+
 ## Planned but Unimplemented Features
-- **Text-to-Speech**: Full implementation plan in `TXT2SPEECH.md` using HuggingFace Transformers.js via CDN. Not yet implemented in the codebase.
 
 ## CSS Architecture
 - Dark theme with CSS custom properties in `:root`
 - Color coding: Side A = green (`--side-a`), Side B = orange (`--side-b`), Judge = gold (`--judge`)
 - Streaming indicator: blinking cursor via `::after` pseudo-element with `animation: blink`
+- TTS controls: `.tts-controls` container, `.tts-btn` with states (default/enabled/playing), `.tts-status` with states (loading/active)
 - Responsive: single-column layout below 700px
 
 ## Key DOM Element IDs
 - Setup phase: `statement`, `endpointA/B`, `apiKeyA/B`, `modelA/B`, `btnFetchA/B`, `btnStartDebate`, plus judge equivalents
 - Debate phase: `debateStream` (message container), `progressA/B`, `statusBadge`, `btnRetryTurn`, `btnAbortDebate`
+- TTS controls: `ttsToggle` (enable/disable button), `ttsStopBtn` (stop button), `ttsStatus` (voice info display)
 - Verdict phase: `verdictWinner`, `verdictReasoning`, `transcriptContainer`, `btnToggleTranscript`, `btnExportMarkdown`, `btnRetryVerdict`
 - Judge-select phase: `endpointJudge2`, `judgeModelSelect2`, `btnFetchJudge2`, `btnStartJudge2`

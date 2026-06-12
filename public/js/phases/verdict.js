@@ -27,6 +27,7 @@ async function runVerdict(judgeModel, endpointJudge) {
       const errBody = await res.text();
       if (vr) { vr.classList.remove('streaming'); vr.textContent = `Server error (${res.status}): ${errBody}`; }
       showToast(`Server error (${res.status}): ${errBody}`, 'error');
+      if (appState.ttsEnabled) { stopDebateAudio(); }
       showRetryVerdict();
       renderTranscript();
       return;
@@ -35,6 +36,12 @@ async function runVerdict(judgeModel, endpointJudge) {
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let fullContent = '';
+
+    // Initialize TTS for judge verdict (non-blocking — verdict proceeds even if TTS fails)
+    if (appState.ttsEnabled) {
+      try { await ttsManager.initialize(); }
+      catch (err) { console.warn('[TTS] Init failed for verdict:', err.message); appState.ttsEnabled = false; }
+    }
 
     while (true) {
       const { done, value } = await reader.read();
@@ -51,10 +58,20 @@ async function runVerdict(judgeModel, endpointJudge) {
             fullContent += data.content;
             if (vr) vr.innerHTML = marked.parse(fullContent);
             scrollVerdictToBottom();
+
+            // Feed text to TTS for judge voice
+            if (appState.ttsEnabled) {
+              feedAudioText(data.content, 'judge');
+            }
           } else if (data.type === 'done') {
             hideRetryVerdict();
             if (vr) vr.classList.remove('streaming');
             if (vr) vr.innerHTML = marked.parse(data.verdict);
+
+            // Flush remaining TTS buffer for judge
+            if (appState.ttsEnabled) {
+              await finishDebateAudio('judge');
+            }
 
             if (data.winner && vw) {
               const winnerSide = data.winner.replace('Side', '').trim();
@@ -70,6 +87,7 @@ async function runVerdict(judgeModel, endpointJudge) {
           } else if (data.type === 'error') {
             if (vr) { vr.classList.remove('streaming'); vr.textContent = `Error: ${data.error}`; }
             showToast('Error: ' + data.error, 'error');
+            if (appState.ttsEnabled) { await finishDebateAudio('judge'); }
             showRetryVerdict();
             break;
           }
@@ -79,6 +97,7 @@ async function runVerdict(judgeModel, endpointJudge) {
   } catch (err) {
     if (vr) { vr.classList.remove('streaming'); vr.textContent = 'Connection error'; }
     showToast('Network error: ' + err.message, 'error');
+    if (appState.ttsEnabled) { await finishDebateAudio('judge'); }
     showRetryVerdict();
   }
 
