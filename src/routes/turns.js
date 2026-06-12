@@ -25,7 +25,7 @@ router.post('/debate/:id/next-turn', findDebate, async (req, res) => {
 
   // Build conversation context
   const conversationHistory = debate.messages.map(m => {
-    const label = m.speaker === 'A' ? 'Side A (arguing TRUE)' : 'Side B (arguing FALSE)';
+    const label = m.speaker === 'A' ? 'The Affirmative (arguing TRUE)' : 'The Negative (arguing FALSE)';
     return { role: 'user', content: `[${label}]: "${m.content}"` };
   });
 

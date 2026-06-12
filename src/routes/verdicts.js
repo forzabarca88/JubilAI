@@ -53,16 +53,16 @@ router.post('/debate/:id/verdict', findDebate, async (req, res) => {
       role: 'user',
       content: `Statement: "${debate.statement}"
 
-Side A (arguing TRUE) used model: ${debate.modelA}
-Arguments from Side A:
+The Affirmative (arguing TRUE) used model: ${debate.modelA}
+Arguments from The Affirmative:
 ${argsA}
 
-Side B (arguing FALSE) used model: ${debate.modelB}
-Arguments from Side B:
+The Negative (arguing FALSE) used model: ${debate.modelB}
+Arguments from The Negative:
 ${argsB}
 
 Evaluate both sides and declare a winner. Explain your reasoning clearly.
-Format your response starting with "Winner: Side A" or "Winner: Side B", followed by your detailed evaluation.`,
+Format your response starting with "Winner: The Affirmative" or "Winner: The Negative", followed by your detailed evaluation.`,
     },
   ];
 
@@ -96,8 +96,8 @@ Format your response starting with "Winner: Side A" or "Winner: Side B", followe
     debate.verdict = fullContent;
     debate.phase = 'complete';
 
-    const winnerMatch = fullContent.match(/Winner:\s*(Side\s*[AB])/i);
-    const winner = winnerMatch ? winnerMatch[1].replace(/\s/g, '') : null;
+    const winnerMatch = fullContent.match(/Winner:\s*(The\s+(Affirmative|Negative))/i);
+    const winner = winnerMatch ? 'The ' + winnerMatch[2] : null;
 
     sendDone(res, { winner, verdict: fullContent });
   } catch (err) {

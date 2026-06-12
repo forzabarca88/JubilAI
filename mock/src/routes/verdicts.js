@@ -51,8 +51,8 @@ router.post('/debate/:id/verdict', findDebate, async (req, res) => {
   debate.verdict = verdict;
   debate.phase = 'complete';
 
-  const winnerMatch = verdict.match(/Winner:\s*(Side\s*[AB])/i);
-  const winner = winnerMatch ? winnerMatch[1].replace(/\s/g, '') : 'SideB';
+  const winnerMatch = verdict.match(/Winner:\s*(The\s+(Affirmative|Negative))/i);
+  const winner = winnerMatch ? 'The ' + winnerMatch[2] : 'The Negative';
 
   res.write(`data: ${JSON.stringify({ type: 'done', winner, verdict })}\n\n`);
   res.end();

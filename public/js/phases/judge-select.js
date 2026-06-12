@@ -12,7 +12,7 @@ async function transitionToJudgeSelect() {
   const st = $('statusText');
   if (st) st.textContent = 'Select a judge';
 
-  // Pre-fill judge endpoint with Side A's endpoint as default
+  // Pre-fill judge endpoint with The Affirmative's endpoint as default
   const ej = $('endpointJudge2');
   if (ej) ej.value = appState.debateData.endpointA || '';
   const akj = $('apiKeyJudge2');

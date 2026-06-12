@@ -2,8 +2,9 @@
  * Reset all state and UI back to the setup phase.
  */
 function resetToSetup() {
-  // Stop any playing TTS audio
+  // Stop any playing TTS audio and clean up model
   stopDebateAudio();
+  ttsManager.destroy();
 
   appState.debateId = null;
   appState.debateData = null;
@@ -21,7 +22,7 @@ function resetToSetup() {
   // Update TTS UI
   updateTTSEnableButton();
 
-  // Reset Side A
+  // Reset The Affirmative
   const mA = $('modelA');
   if (mA) { mA.innerHTML = '<option value="">— fetch models first —</option>'; mA.disabled = true; }
   const eA = $('endpointA');
@@ -32,7 +33,7 @@ function resetToSetup() {
   if (mdsA) mdsA.classList.add('hidden');
   appState.modelsA = [];
 
-  // Reset Side B
+  // Reset The Negative
   const mB = $('modelB');
   if (mB) { mB.innerHTML = '<option value="">— fetch models first —</option>'; mB.disabled = true; }
   const eB = $('endpointB');

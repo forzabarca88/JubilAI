@@ -7,12 +7,12 @@
     --text-dim: #8b8fa3;
     --accent: #6c5ce7;
     --accent-glow: rgba(108, 92, 231, 0.3);
-    --side-a: #00b894;
-    --side-a-bg: rgba(0, 184, 148, 0.1);
-    --side-a-border: rgba(0, 184, 148, 0.35);
-    --side-b: #e17055;
-    --side-b-bg: rgba(225, 112, 85, 0.1);
-    --side-b-border: rgba(225, 112, 85, 0.35);
+    --affirmative: #00b894;
+    --affirmative-bg: rgba(0, 184, 148, 0.1);
+    --affirmative-border: rgba(0, 184, 148, 0.35);
+    --negative: #e17055;
+    --negative-bg: rgba(225, 112, 85, 0.1);
+    --negative-border: rgba(225, 112, 85, 0.35);
     --judge: #fdcb6e;
     --judge-bg: rgba(253, 203, 110, 0.1);
     --judge-border: rgba(253, 203, 110, 0.35);
@@ -44,7 +44,7 @@
   header h1 {
     font-size: 1.4rem;
     font-weight: 700;
-    background: linear-gradient(135deg, var(--accent), var(--side-a));
+    background: linear-gradient(135deg, var(--accent), var(--affirmative));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
   }
@@ -154,12 +154,12 @@
   .form-group { margin-bottom: 16px; }
 
   /* Side-specific borders */
-  .card.border-a { border-color: var(--side-a-border); }
-  .card.border-b { border-color: var(--side-b-border); }
+  .card.border-affirmative { border-color: var(--affirmative-border); }
+  .card.border-negative { border-color: var(--negative-border); }
   .card.border-judge { border-color: var(--judge-border); }
 
-  .card.border-a h2 { color: var(--side-a); }
-  .card.border-b h2 { color: var(--side-b); }
+  .card.border-affirmative h2 { color: var(--affirmative); }
+  .card.border-negative h2 { color: var(--negative); }
   .card.border-judge h2 { color: var(--judge); }
 
   /* Buttons */
@@ -218,22 +218,22 @@
     margin-bottom: 20px;
   }
 
-  .side-panel {
+  .speaker-panel {
     padding: 20px;
     border-radius: var(--radius);
   }
 
-  .side-panel.side-a {
-    background: var(--side-a-bg);
-    border: 1px solid var(--side-a-border);
+  .speaker-panel.affirmative {
+    background: var(--affirmative-bg);
+    border: 1px solid var(--affirmative-border);
   }
 
-  .side-panel.side-b {
-    background: var(--side-b-bg);
-    border: 1px solid var(--side-b-border);
+  .speaker-panel.negative {
+    background: var(--negative-bg);
+    border: 1px solid var(--negative-border);
   }
 
-  .side-panel h3 {
+  .speaker-panel h3 {
     font-size: 1rem;
     margin-bottom: 14px;
     display: flex;
@@ -241,8 +241,8 @@
     gap: 8px;
   }
 
-  .side-panel.side-a h3 { color: var(--side-a); }
-  .side-panel.side-b h3 { color: var(--side-b); }
+  .speaker-panel.affirmative h3 { color: var(--affirmative); }
+  .speaker-panel.negative h3 { color: var(--negative); }
 
   /* Judge panel */
   .judge-panel {
@@ -317,14 +317,14 @@
     position: relative;
   }
 
-  .message.side-a {
-    background: var(--side-a-bg);
-    border-color: var(--side-a);
+  .message.affirmative {
+    background: var(--affirmative-bg);
+    border-color: var(--affirmative);
   }
 
-  .message.side-b {
-    background: var(--side-b-bg);
-    border-color: var(--side-b);
+  .message.negative {
+    background: var(--negative-bg);
+    border-color: var(--negative);
   }
 
   .message-header {
@@ -341,8 +341,8 @@
     letter-spacing: 0.5px;
   }
 
-  .message.side-a .message-label { color: var(--side-a); }
-  .message.side-b .message-label { color: var(--side-b); }
+  .message.affirmative .message-label { color: var(--affirmative); }
+  .message.negative .message-label { color: var(--negative); }
 
   .message-meta {
     display: flex;
@@ -441,8 +441,8 @@
     transition: all 0.3s;
   }
 
-  .progress-dot.filled-a { background: var(--side-a); border-color: var(--side-a); }
-  .progress-dot.filled-b { background: var(--side-b); border-color: var(--side-b); }
+  .progress-dot.filled-affirmative { background: var(--affirmative); border-color: var(--affirmative); }
+  .progress-dot.filled-negative { background: var(--negative); border-color: var(--negative); }
 
   .progress-row {
     display: flex;
@@ -457,8 +457,8 @@
     min-width: 60px;
   }
 
-  .progress-label.side-a { color: var(--side-a); }
-  .progress-label.side-b { color: var(--side-b); }
+  .progress-label.affirmative { color: var(--affirmative); }
+  .progress-label.negative { color: var(--negative); }
 
   /* Verdict */
   .verdict-card {
@@ -475,8 +475,8 @@
     margin-bottom: 12px;
   }
 
-  .verdict-winner.side-a { color: var(--side-a); }
-  .verdict-winner.side-b { color: var(--side-b); }
+  .verdict-winner.affirmative { color: var(--affirmative); }
+  .verdict-winner.negative { color: var(--negative); }
 
   .verdict-reasoning {
     font-size: 0.95rem;
@@ -556,14 +556,14 @@
     font-size: 0.85rem;
   }
 
-  .selection-card.side-a {
-    background: var(--side-a-bg);
-    border: 1px solid var(--side-a);
+  .selection-card.affirmative {
+    background: var(--affirmative-bg);
+    border: 1px solid var(--affirmative);
   }
 
-  .selection-card.side-b {
-    background: var(--side-b-bg);
-    border: 1px solid var(--side-b);
+  .selection-card.negative {
+    background: var(--negative-bg);
+    border: 1px solid var(--negative);
   }
 
   .selection-card .role {
@@ -573,8 +573,8 @@
     margin-bottom: 4px;
   }
 
-  .selection-card.side-a .role { color: var(--side-a); }
-  .selection-card.side-b .role { color: var(--side-b); }
+  .selection-card.affirmative .role { color: var(--affirmative); }
+  .selection-card.negative .role { color: var(--negative); }
 
   .selection-card .detail {
     font-family: 'SF Mono', 'Fira Code', monospace;
@@ -608,7 +608,7 @@
     margin-left: auto;
   }
 
-  .status-badge.active { color: var(--side-a); }
+  .status-badge.active { color: var(--affirmative); }
   .status-badge.waiting { color: var(--judge); }
 
   /* Toast notifications */
@@ -630,7 +630,7 @@
 
   .toast.show { transform: translateY(0); opacity: 1; }
   .toast.error { border-color: #e74c3c; }
-  .toast.success { border-color: var(--side-a); }
+  .toast.success { border-color: var(--affirmative); }
 
   .hidden { display: none !important; }
 
@@ -654,7 +654,7 @@
     color: var(--text-dim);
   }
 
-  .auto-progress .spinner { border-top-color: var(--side-a); }
+  .auto-progress .spinner { border-top-color: var(--affirmative); }
 
   /* Judge panel helper */
   .judge-helper {
@@ -713,7 +713,7 @@
   }
 
   .tts-btn.enabled {
-    background: var(--side-a);
+    background: var(--affirmative);
   }
 
   .tts-btn.playing {
@@ -733,5 +733,5 @@
   }
 
   .tts-status.active {
-    color: var(--side-a);
+    color: var(--affirmative);
   }

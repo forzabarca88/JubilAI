@@ -31,9 +31,9 @@
     </div>
 
     <div class="sides-layout">
-      <!-- Side A Panel -->
-      <div class="side-panel side-a">
-        <h3><span style="color:var(--side-a)">●</span> Side A — Argues TRUE</h3>
+      <!-- Affirmative Panel -->
+      <div class="speaker-panel affirmative">
+        <h3><span style="color:var(--affirmative)">●</span> The Affirmative — Argues TRUE</h3>
 
         <div class="form-group">
           <label>Endpoint URL</label>
@@ -57,9 +57,9 @@
         </div>
       </div>
 
-      <!-- Side B Panel -->
-      <div class="side-panel side-b">
-        <h3><span style="color:var(--side-b)">●</span> Side B — Argues FALSE</h3>
+      <!-- Negative Panel -->
+      <div class="speaker-panel negative">
+        <h3><span style="color:var(--negative)">●</span> The Negative — Argues FALSE</h3>
 
         <div class="form-group">
           <label>Endpoint URL</label>
@@ -128,13 +128,13 @@
     </div>
 
     <div class="selection-info">
-      <div class="selection-card side-a">
-        <div class="role">Side A (TRUE)</div>
+      <div class="selection-card affirmative">
+        <div class="role">The Affirmative (TRUE)</div>
         <div class="detail" id="debateModelA"></div>
         <div class="detail" id="debateEndpointA"></div>
       </div>
-      <div class="selection-card side-b">
-        <div class="role">Side B (FALSE)</div>
+      <div class="selection-card negative">
+        <div class="role">The Negative (FALSE)</div>
         <div class="detail" id="debateModelB"></div>
         <div class="detail" id="debateEndpointB"></div>
       </div>
@@ -143,11 +143,11 @@
     <div class="card">
       <h2><span class="icon">💬</span> Debate Progress</h2>
       <div class="progress-row">
-        <span class="progress-label side-a">Side A:</span>
+        <span class="progress-label affirmative">The Affirmative:</span>
         <div class="progress-bar" id="progressA"></div>
       </div>
       <div class="progress-row">
-        <span class="progress-label side-b">Side B:</span>
+        <span class="progress-label negative">The Negative:</span>
         <div class="progress-bar" id="progressB"></div>
       </div>
     </div>
@@ -310,7 +310,7 @@ function updateTTSEnableButton() {
     if (status) {
       const voices = appState.ttsSpeakerVoices;
       const voiceInfo = Object.keys(voices).length > 0
-        ? `Voices: A=${voices.A}, B=${voices.B}, Judge=${voices.judge} (Kokoro)`
+        ? `Voices: Affirmative=${voices.A}, Negative=${voices.B}, Judge=${voices.judge} (Kokoro)`
         : 'Initializing Kokoro TTS model...';
       status.textContent = voiceInfo;
       status.className = 'tts-status' + (Object.keys(voices).length === 0 ? ' loading' : ' active');

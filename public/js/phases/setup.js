@@ -68,7 +68,7 @@ async function fetchModelsFor(panel) {
       fetchBtn.disabled = false;
     }
 
-    showToast(`Found ${models.length} models for ${panel === 'Judge' ? 'Judge' : 'Side ' + panel}`, 'success');
+    showToast(`Found ${models.length} models for ${panel === 'Judge' ? 'Judge' : panel === 'A' ? 'The Affirmative' : 'The Negative'}`, 'success');
   } catch (err) {
     showToast('Network error: ' + err.message, 'error');
   }

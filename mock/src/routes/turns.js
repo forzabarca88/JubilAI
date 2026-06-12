@@ -20,7 +20,7 @@ router.post('/debate/:id/next-turn', findDebate, async (req, res) => {
   const model = speaker === 'A' ? debate.modelA : debate.modelB;
   const turnIndex = speaker === 'A' ? debate.countA : debate.countB;
   const content = MOCK_DEBATE_CONTENT[speaker][turnIndex]
-    || `Mock argument ${turnIndex + 1} from Side ${speaker}.`;
+    || `Mock argument ${turnIndex + 1} from ${speaker === 'A' ? 'The Affirmative' : 'The Negative'}.`;
 
   // Set up streaming headers
   res.writeHead(200, {

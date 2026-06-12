@@ -29,7 +29,7 @@ function updateDebateStatus() {
   const text = $('statusText');
 
   if (appState.isStreaming) {
-    const speakerName = appState._activeSpeaker === 'A' ? 'Side A' : 'Side B';
+    const speakerName = appState._activeSpeaker === 'A' ? 'The Affirmative' : 'The Negative';
     if (text) text.innerHTML = `<span class="spinner"></span> ${speakerName} generating...`;
     if (badge) badge.className = 'status-badge active';
   } else if (appState.countA >= appState.maxTurns && appState.countB >= appState.maxTurns) {
@@ -40,7 +40,7 @@ function updateDebateStatus() {
     }
     if (badge) badge.className = 'status-badge waiting';
   } else {
-    const speakerName = appState.currentSpeaker === 'A' ? 'Side A' : 'Side B';
+    const speakerName = appState.currentSpeaker === 'A' ? 'The Affirmative' : 'The Negative';
     const model = appState.currentSpeaker === 'A' ? appState.debateData?.modelA : appState.debateData?.modelB;
     if (text) text.textContent = `${speakerName}'s turn (${model})`;
     if (badge) badge.className = 'status-badge active';
@@ -63,7 +63,7 @@ async function executeNextTurn() {
   // Create message card
   const msgDiv = document.createElement('div');
   msgDiv.className = `message side-${activeSpeaker.toLowerCase()}`;
-  const speakerLabel = activeSpeaker === 'A' ? 'Side A (TRUE)' : 'Side B (FALSE)';
+  const speakerLabel = activeSpeaker === 'A' ? 'The Affirmative (TRUE)' : 'The Negative (FALSE)';
 
   msgDiv.innerHTML = `
     <div class="message-header">

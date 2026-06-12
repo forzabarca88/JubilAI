@@ -74,9 +74,9 @@ async function runVerdict(judgeModel, endpointJudge) {
             }
 
             if (data.winner && vw) {
-              const winnerSide = data.winner.replace('Side', '').trim();
-              vw.textContent = `🏆 Winner: Side ${winnerSide}`;
-              vw.className = `verdict-winner side-${winnerSide.toLowerCase()}`;
+              vw.textContent = `🏆 Winner: ${data.winner}`;
+              const winnerClass = data.winner.includes('Affirmative') ? 'affirmative' : 'negative';
+              vw.className = `verdict-winner ${winnerClass}`;
             } else if (vw) {
               vw.textContent = '⚖️ Verdict rendered';
             }
@@ -120,7 +120,7 @@ function renderTranscript() {
     appState.debateData.messages.forEach(msg => {
       const msgDiv = document.createElement('div');
       msgDiv.className = `message side-${msg.speaker.toLowerCase()}`;
-      const speakerLabel = msg.speaker === 'A' ? 'Side A (TRUE)' : 'Side B (FALSE)';
+      const speakerLabel = msg.speaker === 'A' ? 'The Affirmative (TRUE)' : 'The Negative (FALSE)';
 
       msgDiv.innerHTML = `
         <div class="message-header">
@@ -179,7 +179,7 @@ function exportMarkdown() {
     appState.debateData.messages.forEach((msg, index) => {
       if (index > 0) transcriptMarkdown += '\n\n';
 
-      const speakerLabel = msg.speaker === 'A' ? 'Side A (TRUE)' : 'Side B (FALSE)';
+      const speakerLabel = msg.speaker === 'A' ? 'The Affirmative (TRUE)' : 'The Negative (FALSE)';
       transcriptMarkdown += `### ${speakerLabel}\n\n`;
 
       if (msg.model) transcriptMarkdown += `**Model:** \`${msg.model}\`\n`;

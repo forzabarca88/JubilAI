@@ -8,8 +8,8 @@ app.listen(PORT, () => {
   console.log('  Quick start:');
   console.log(`    1. Open http://localhost:${PORT}`);
   console.log(`    2. Enter any statement (e.g., "AI will surpass human intelligence")`);
-  console.log(`    3. Side A: endpoint = http://localhost:${PORT}, pick any model`);
-  console.log(`    4. Side B: endpoint = http://localhost:${PORT}, pick any model`);
+  console.log(`    3. The Affirmative: endpoint = http://localhost:${PORT}, pick any model`);
+  console.log(`    4. The Negative: endpoint = http://localhost:${PORT}, pick any model`);
   console.log(`    5. Judge:  endpoint = http://localhost:${PORT}, pick any model (optional)`);
   console.log(`    6. Click "Start Debate" — everything runs automatically\n`);
 });
