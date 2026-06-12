@@ -896,9 +896,14 @@
     <!-- Debate Transcript Toggle -->
     <div class="card" style="margin-top: 20px;">
       <h2><span class="icon">📜</span> Debate Transcript</h2>
-      <button class="btn btn-secondary" id="btnToggleTranscript" style="width: 100%;">
-        👁️ Show/Hide Debate Transcript
-      </button>
+      <div style="display: flex; gap: 10px; margin-bottom: 16px;">
+        <button class="btn btn-secondary" id="btnToggleTranscript" style="flex: 1;">
+          👁️ Show/Hide Debate Transcript
+        </button>
+        <button class="btn btn-primary" id="btnExportMarkdown" style="flex: 1;">
+          📥 Export as Markdown
+        </button>
+      </div>
       <div id="transcriptContainer" class="hidden" style="margin-top: 16px;">
         <div class="debate-stream" id="transcriptStream"></div>
       </div>
@@ -1502,6 +1507,112 @@ async function runVerdict(judgeModel, endpointJudge) {
   // Render transcript
   renderTranscript();
 }
+
+// ─── Export as Markdown ────────────────────────────────────
+$('btnExportMarkdown').onclick = () => {
+  const vs = $('verdictWinner');
+  const vr = $('verdictReasoning');
+  const vj = $('verdictJudge');
+  const ve = $('verdictEndpoint');
+  const stmtEl = $('verdictStatement');
+  const stream = $('transcriptStream');
+  
+  if (!stream || stream.innerHTML.trim() === '') {
+    showToast('No debate transcript to export', 'error');
+    return;
+  }
+  
+  const statement = stmtEl ? stmtEl.textContent.replace(/"/, '').replace(/\n/g, ' ') : 'N/A';
+  const winner = vs ? vs.textContent : 'N/A';
+  const verdictReasoning = vr ? vr.innerHTML : 'N/A';
+  const judgeModel = vj ? vj.textContent : 'N/A';
+  const endpoint = ve ? ve.textContent : 'N/A';
+  
+  // Convert verdict HTML to markdown
+  let verdictMarkdown = '';
+  if (typeof marked !== 'undefined' && marked.parse) {
+    verdictMarkdown = marked.parse(verdictReasoning, { gfm: true });
+  } else {
+    verdictMarkdown = verdictReasoning
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/\n/g, '\n');
+  }
+  
+  // Build transcript markdown manually
+  let transcriptMarkdown = '';
+  
+  // Parse messages from state.debateData instead of trying to parse HTML
+  if (state.debateData && state.debateData.messages && state.debateData.messages.length > 0) {
+    state.debateData.messages.forEach((msg, index) => {
+      if (index > 0) transcriptMarkdown += '\n\n';
+      
+      const speakerLabel = msg.speaker === 'A' ? 'Side A (TRUE)' : 'Side B (FALSE)';
+      
+      transcriptMarkdown += `### ${speakerLabel}\n\n`;
+      
+      if (msg.model) {
+        transcriptMarkdown += `**Model:** \`${msg.model}\`\n`;
+      }
+      if (msg.endpoint) {
+        transcriptMarkdown += `**Endpoint:** \`${msg.endpoint}\`\n`;
+      }
+      transcriptMarkdown += '\n';
+      
+      // Convert message content to markdown
+      if (msg.content) {
+        if (typeof marked !== 'undefined' && marked.parse) {
+          transcriptMarkdown += marked.parse(msg.content, { gfm: true });
+        } else {
+          // Fallback
+          transcriptMarkdown += msg.content
+            .replace(/<[^>]+>/g, '')
+            .replace(/&nbsp;/g, ' ')
+            .replace(/\n/g, '\n');
+        }
+      }
+    });
+  }
+  
+  // Build markdown export
+  let exportContent = `# 🏆 Debate Result
+
+## 📝 Statement
+> ${statement}
+
+## ⚖️ Verdict
+
+**Winner:** ${winner}
+
+**Judge Model:** ${judgeModel}
+**Endpoint:** ${endpoint}
+
+---
+
+## 📜 Judge's Reasoning
+
+${verdictMarkdown}
+
+---
+
+## 💬 Debate Transcript
+
+${transcriptMarkdown}
+`;
+  
+  // Create download link
+  const blob = new Blob([exportContent], { type: 'text/markdown' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `debate-result-${Date.now()}.md`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  
+  showToast('Exported as markdown!', 'success');
+};
 
 // ─── Render Transcript ─────────────────────────────────────
 function renderTranscript() {
