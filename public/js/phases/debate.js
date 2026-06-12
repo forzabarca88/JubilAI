@@ -56,13 +56,14 @@ async function executeNextTurn() {
   appState.isStreaming = true;
   appState._activeSpeaker = activeSpeaker;
   updateDebateStatus();
+  if (appState.ttsEnabled) startTTSStatusPoll();
 
   const model = activeSpeaker === 'A' ? appState.debateData.modelA : appState.debateData.modelB;
   const endpoint = activeSpeaker === 'A' ? appState.debateData.endpointA : appState.debateData.endpointB;
 
   // Create message card
   const msgDiv = document.createElement('div');
-  msgDiv.className = `message side-${activeSpeaker.toLowerCase()}`;
+  msgDiv.className = `message ${activeSpeaker === 'A' ? 'affirmative' : 'negative'}`;
   const speakerLabel = activeSpeaker === 'A' ? 'The Affirmative (TRUE)' : 'The Negative (FALSE)';
 
   msgDiv.innerHTML = `
@@ -93,6 +94,7 @@ async function executeNextTurn() {
       showToast(`Server error (${res.status}): ${errBody}`, 'error');
       if (appState.ttsEnabled) { stopDebateAudio(); }
       appState.isStreaming = false;
+      stopTTSStatusPoll();
       updateDebateStatus();
       showRetryTurn();
       return;
@@ -144,6 +146,7 @@ async function executeNextTurn() {
               appState.currentSpeaker = null;
               appState.isStreaming = false;
               hideRetryTurn();
+              stopTTSStatusPoll();
               updateDebateStatus();
 
               if (data.autoJudge) {
@@ -157,6 +160,7 @@ async function executeNextTurn() {
               appState.currentSpeaker = data.nextSpeaker;
               appState.isStreaming = false;
               hideRetryTurn();
+              stopTTSStatusPoll();
               updateDebateStatus();
 
               // Auto-advance to next turn
@@ -171,6 +175,7 @@ async function executeNextTurn() {
             showToast('Error: ' + data.error, 'error');
             if (appState.ttsEnabled) { await finishDebateAudio(activeSpeaker); }
             appState.isStreaming = false;
+            stopTTSStatusPoll();
             updateDebateStatus();
             showRetryTurn();
             break;
@@ -185,6 +190,7 @@ async function executeNextTurn() {
     showToast('Network error: ' + err.message, 'error');
     if (appState.ttsEnabled) { stopDebateAudio(); }
     appState.isStreaming = false;
+    stopTTSStatusPoll();
     updateDebateStatus();
     showRetryTurn();
   }

@@ -23,7 +23,7 @@ function showPhase(name) {
   });
   const badge = $('statusBadge');
   if (badge) {
-    if (name === 'phase-debate' || name === 'phase-judge-select') {
+    if (name === 'phase-debate' || name === 'phase-judge-select' || name === 'phase-verdict') {
       badge.classList.remove('hidden');
     } else {
       badge.classList.add('hidden');

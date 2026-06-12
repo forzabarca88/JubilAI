@@ -241,6 +241,19 @@
       <div class="verdict-reasoning" id="verdictReasoning"></div>
     </div>
 
+    <!-- TTS Controls -->
+    <div class="tts-controls" id="ttsControlsVerdict">
+      <div class="tts-button-group">
+        <button class="tts-btn" id="ttsToggleVerdict" onclick="toggleTTSEnable()">
+          🔊 Enable Audio
+        </button>
+        <button class="tts-btn" id="ttsStopBtnVerdict" onclick="stopDebateAudio()" disabled>
+          ⏹ Stop
+        </button>
+      </div>
+      <div class="tts-status" id="ttsStatusVerdict"></div>
+    </div>
+
     <!-- Debate Transcript Toggle -->
     <div class="card" style="margin-top: 20px;">
       <h2><span class="icon">📜</span> Debate Transcript</h2>
@@ -295,33 +308,101 @@ function toggleTTSEnable() {
   }
 }
 
-/** Update TTS toggle button appearance */
+/** Update TTS toggle button appearance (both debate and verdict phases) */
 function updateTTSEnableButton() {
-  const toggle = $('ttsToggle');
-  const stopBtn = $('ttsStopBtn');
-  const status = $('ttsStatus');
-  if (!toggle) return;
+  // Update both sets of TTS controls (debate phase + verdict phase)
+  const toggles = [$('ttsToggle'), $('ttsToggleVerdict')];
+  const stopBtns = [$('ttsStopBtn'), $('ttsStopBtnVerdict')];
+  const statuses = [$('ttsStatus'), $('ttsStatusVerdict')];
 
-  if (appState.ttsEnabled) {
-    toggle.innerHTML = '🔊 Disable Audio';
-    toggle.classList.add('enabled');
-    toggle.classList.remove('playing');
-    if (stopBtn) stopBtn.disabled = false;
-    if (status) {
-      const voices = appState.ttsSpeakerVoices;
-      const voiceInfo = Object.keys(voices).length > 0
-        ? `Voices: Affirmative=${voices.A}, Negative=${voices.B}, Judge=${voices.judge} (Kokoro)`
-        : 'Initializing Kokoro TTS model...';
-      status.textContent = voiceInfo;
-      status.className = 'tts-status' + (Object.keys(voices).length === 0 ? ' loading' : ' active');
+  for (const toggle of toggles) {
+    if (!toggle) continue;
+    if (appState.ttsEnabled) {
+      toggle.innerHTML = '🔊 Disable Audio';
+      toggle.classList.add('enabled');
+      toggle.classList.remove('playing');
+    } else {
+      toggle.innerHTML = '🔊 Enable Audio';
+      toggle.classList.remove('enabled');
+      toggle.classList.remove('playing');
     }
-  } else {
-    toggle.innerHTML = '🔊 Enable Audio';
-    toggle.classList.remove('enabled');
-    toggle.classList.remove('playing');
-    if (stopBtn) stopBtn.disabled = true;
-    if (status) { status.textContent = ''; status.className = 'tts-status'; }
   }
+
+  for (const stopBtn of stopBtns) {
+    if (stopBtn) stopBtn.disabled = !appState.ttsEnabled;
+  }
+
+  for (const status of statuses) {
+    if (!status) continue;
+
+    if (!appState.ttsEnabled) {
+      status.textContent = '';
+      status.className = 'tts-status';
+      continue;
+    }
+
+    // Build detailed status string
+    const parts = [];
+    const voices = appState.ttsSpeakerVoices;
+
+    if (Object.keys(voices).length === 0) {
+      status.textContent = 'Initializing Kokoro TTS model…';
+      status.className = 'tts-status loading';
+      continue;
+    }
+
+    // Voice info
+    parts.push(`Voices: Aff=${voices.A}, Neg=${voices.B}, Judge=${voices.judge}`);
+
+    let stateClass = 'active';
+
+    // Generation queue depth
+    if (ttsManager._pendingGenerations && ttsManager._pendingGenerations.length > 0) {
+      parts.push(`Queue: ${ttsManager._pendingGenerations.length}`);
+      stateClass = 'generating';
+    }
+
+    // Audio playback state
+    if (ttsManager.isPlaying) {
+      parts.push('▶ Playing');
+      stateClass = 'playing';
+      // Update toggle buttons to playing state
+      for (const toggle of toggles) {
+        if (toggle) {
+          toggle.classList.add('playing');
+          toggle.classList.remove('enabled');
+        }
+      }
+    } else if (ttsManager.hasQueuedAudio()) {
+      parts.push(`Buffered: ${ttsManager.audioQueue.length}`);
+    }
+
+    status.textContent = parts.join(' | ');
+    status.className = `tts-status ${stateClass}`;
+  }
+}
+
+/** Periodic TTS status polling — updates display while streaming */
+let ttsStatusInterval = null;
+
+function startTTSStatusPoll() {
+  if (ttsStatusInterval) return;
+  ttsStatusInterval = setInterval(() => {
+    if (appState.ttsEnabled) {
+      updateTTSEnableButton();
+    } else {
+      stopTTSStatusPoll();
+    }
+  }, 500);
+}
+
+function stopTTSStatusPoll() {
+  if (ttsStatusInterval) {
+    clearInterval(ttsStatusInterval);
+    ttsStatusInterval = null;
+  }
+  // Final refresh
+  updateTTSEnableButton();
 }
 
 document.addEventListener('DOMContentLoaded', () => {

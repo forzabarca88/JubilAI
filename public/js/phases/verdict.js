@@ -19,6 +19,8 @@ async function runVerdict(judgeModel, endpointJudge) {
   const st = $('statusText');
   if (st) st.innerHTML = '<span class="spinner"></span> Judge is evaluating...';
 
+  if (appState.ttsEnabled) startTTSStatusPoll();
+
   try {
     const res = await appApi.verdict(appState.debateId);
 
@@ -28,6 +30,7 @@ async function runVerdict(judgeModel, endpointJudge) {
       if (vr) { vr.classList.remove('streaming'); vr.textContent = `Server error (${res.status}): ${errBody}`; }
       showToast(`Server error (${res.status}): ${errBody}`, 'error');
       if (appState.ttsEnabled) { stopDebateAudio(); }
+      stopTTSStatusPoll();
       showRetryVerdict();
       renderTranscript();
       return;
@@ -64,15 +67,9 @@ async function runVerdict(judgeModel, endpointJudge) {
               feedAudioText(data.content, 'judge');
             }
           } else if (data.type === 'done') {
+            // Update all UI immediately — before TTS flush to avoid blocking
             hideRetryVerdict();
-            if (vr) vr.classList.remove('streaming');
-            if (vr) vr.innerHTML = marked.parse(data.verdict);
-
-            // Flush remaining TTS buffer for judge
-            if (appState.ttsEnabled) {
-              await finishDebateAudio('judge');
-            }
-
+            if (vr) { vr.classList.remove('streaming'); vr.innerHTML = marked.parse(data.verdict); }
             if (data.winner && vw) {
               vw.textContent = `🏆 Winner: ${data.winner}`;
               const winnerClass = data.winner.includes('Affirmative') ? 'affirmative' : 'negative';
@@ -80,25 +77,53 @@ async function runVerdict(judgeModel, endpointJudge) {
             } else if (vw) {
               vw.textContent = '⚖️ Verdict rendered';
             }
-
             if (st) st.textContent = 'Debate Complete';
             showToast('Judgment complete!', 'success');
+
+            // Flush TTS buffer after UI is updated (non-blocking for user)
+            if (appState.ttsEnabled) {
+              finishDebateAudio('judge');
+            }
+            stopTTSStatusPoll();
             break;
           } else if (data.type === 'error') {
+            // Update UI immediately
             if (vr) { vr.classList.remove('streaming'); vr.textContent = `Error: ${data.error}`; }
             showToast('Error: ' + data.error, 'error');
-            if (appState.ttsEnabled) { await finishDebateAudio('judge'); }
             showRetryVerdict();
+            stopTTSStatusPoll();
+
+            // Flush TTS after UI update
+            if (appState.ttsEnabled) { finishDebateAudio('judge'); }
             break;
           }
         }
       }
     }
+
+    // Post-loop safeguard: if stream ended without a 'done' event, finalize UI
+    if (vr && vr.classList.contains('streaming')) {
+      vr.classList.remove('streaming');
+      if (fullContent.trim()) vr.innerHTML = marked.parse(fullContent);
+    }
+    if (vw && vw.textContent === 'Evaluating...') {
+      vw.textContent = '⚖️ Verdict rendered';
+    }
+    if (st) st.textContent = 'Debate Complete';
+    hideRetryVerdict();
+
+    // Flush TTS after UI is updated (non-blocking)
+    if (appState.ttsEnabled) { finishDebateAudio('judge'); }
+    stopTTSStatusPoll();
   } catch (err) {
+    // Update UI immediately
     if (vr) { vr.classList.remove('streaming'); vr.textContent = 'Connection error'; }
     showToast('Network error: ' + err.message, 'error');
-    if (appState.ttsEnabled) { await finishDebateAudio('judge'); }
     showRetryVerdict();
+    stopTTSStatusPoll();
+
+    // Flush TTS after UI update
+    if (appState.ttsEnabled) { finishDebateAudio('judge'); }
   }
 
   // Render transcript
