@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { findDebate } = require('../middleware/debates');
-const { createClient } = require('../utils/openai-client');
+const { createClient, withRetry } = require('../utils/openai-client');
 const { SYSTEM_PROMPT_JUDGE } = require('../utils/prompts');
 const { setupSSE, sendChunk, sendDone, sendError } = require('../utils/streaming');
 
@@ -69,9 +69,9 @@ Format your response starting with "Winner: Side A" or "Winner: Side B", followe
   const client = createClient(debate.endpointJudge, debate.apiKeyJudge);
 
   setupSSE(res);
-  let fullContent = '';
 
-  try {
+  async function runStream() {
+    let content = '';
     const stream = await client.chat.completions.create({
       model: debate.judgeModel,
       messages,
@@ -82,10 +82,16 @@ Format your response starting with "Winner: Side A" or "Winner: Side B", followe
     for await (const chunk of stream) {
       const delta = chunk.choices?.[0]?.delta?.content || '';
       if (delta) {
-        fullContent += delta;
+        content += delta;
         sendChunk(res, delta);
       }
     }
+    return content;
+  }
+
+  try {
+    let fullContent;
+    fullContent = await withRetry(runStream);
 
     debate.verdict = fullContent;
     debate.phase = 'complete';

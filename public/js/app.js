@@ -61,5 +61,11 @@ function resetToSetup() {
   const btn = $('btnStartDebate');
   if (btn) btn.disabled = true;
 
+  // Hide retry buttons
+  const rtt = $('btnRetryTurn');
+  if (rtt) rtt.style.display = 'none';
+  const rvt = $('btnRetryVerdict');
+  if (rvt) rvt.style.display = 'none';
+
   showPhase('phase-setup');
 }

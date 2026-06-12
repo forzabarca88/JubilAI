@@ -20,7 +20,7 @@ router.post('/debate', (req, res) => {
   }
 
   const id = uuidv4();
-  const startsWithA = Math.random() < 0.5;
+  const sideAGoesFirst = Math.random() < 0.5;
 
   debates.set(id, {
     id,
@@ -31,7 +31,7 @@ router.post('/debate', (req, res) => {
     endpointJudge: endpointJudge || null,
     apiKeyJudge: apiKeyJudge || null,
     messages: [],
-    nextSpeaker: startsWithA ? 'A' : 'B',
+    nextSpeaker: sideAGoesFirst ? 'A' : 'B',
     countA: 0,
     countB: 0,
     maxTurns: 3,
@@ -43,7 +43,7 @@ router.post('/debate', (req, res) => {
 
   res.json({
     id, phase: 'debating',
-    nextSpeaker: startsWithA ? 'A' : 'B',
+    nextSpeaker: sideAGoesFirst ? 'A' : 'B',
     modelA, modelB, statement,
     judgeModel: judgeModel || null,
     autoJudge: !!(judgeModel && endpointJudge),

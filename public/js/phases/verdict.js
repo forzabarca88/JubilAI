@@ -42,6 +42,7 @@ async function runVerdict(judgeModel, endpointJudge) {
             if (vr) vr.innerHTML = marked.parse(fullContent);
             scrollVerdictToBottom();
           } else if (data.type === 'done') {
+            hideRetryVerdict();
             if (vr) vr.classList.remove('streaming');
             if (vr) vr.innerHTML = marked.parse(data.verdict);
 
@@ -59,6 +60,7 @@ async function runVerdict(judgeModel, endpointJudge) {
           } else if (data.type === 'error') {
             if (vr) { vr.classList.remove('streaming'); vr.textContent = `Error: ${data.error}`; }
             showToast('Error: ' + data.error, 'error');
+            showRetryVerdict();
             break;
           }
         }
@@ -67,6 +69,7 @@ async function runVerdict(judgeModel, endpointJudge) {
   } catch (err) {
     if (vr) { vr.classList.remove('streaming'); vr.textContent = 'Connection error'; }
     showToast('Network error: ' + err.message, 'error');
+    showRetryVerdict();
   }
 
   // Render transcript
@@ -205,6 +208,18 @@ ${transcriptMarkdown}
   showToast('Exported as markdown!', 'success');
 }
 
+/** Show the retry verdict button */
+function showRetryVerdict() {
+  const btn = $('btnRetryVerdict');
+  if (btn) btn.style.display = '';
+}
+
+/** Hide the retry verdict button */
+function hideRetryVerdict() {
+  const btn = $('btnRetryVerdict');
+  if (btn) btn.style.display = 'none';
+}
+
 /** Bind verdict phase event listeners */
 function initVerdictPhase() {
   $('btnToggleTranscript').onclick = () => {
@@ -220,4 +235,13 @@ function initVerdictPhase() {
   };
 
   $('btnExportMarkdown').onclick = exportMarkdown;
+
+  $('btnRetryVerdict').onclick = () => {
+    hideRetryVerdict();
+    const judgeModel = appState.debateData?.judgeModel;
+    const endpointJudge = appState.debateData?.endpointJudge;
+    if (judgeModel && endpointJudge) {
+      runVerdict(judgeModel, endpointJudge);
+    }
+  };
 }

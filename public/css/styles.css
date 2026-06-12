@@ -197,6 +197,13 @@
     color: white;
   }
 
+  .btn-retry {
+    background: #fdcb6e;
+    color: #1a1d27;
+    font-weight: 700;
+  }
+  .btn-retry:hover { background: #f0c040; }
+
   .btn-row {
     display: flex;
     gap: 10px;

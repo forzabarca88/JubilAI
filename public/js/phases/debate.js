@@ -119,6 +119,7 @@ async function executeNextTurn() {
             if (data.debateComplete) {
               appState.currentSpeaker = null;
               appState.isStreaming = false;
+              hideRetryTurn();
               updateDebateStatus();
 
               if (data.autoJudge) {
@@ -131,6 +132,7 @@ async function executeNextTurn() {
             } else {
               appState.currentSpeaker = data.nextSpeaker;
               appState.isStreaming = false;
+              hideRetryTurn();
               updateDebateStatus();
 
               // Auto-advance to next turn
@@ -145,6 +147,7 @@ async function executeNextTurn() {
             showToast('Error: ' + data.error, 'error');
             appState.isStreaming = false;
             updateDebateStatus();
+            showRetryTurn();
             break;
           }
         }
@@ -157,7 +160,20 @@ async function executeNextTurn() {
     showToast('Network error: ' + err.message, 'error');
     appState.isStreaming = false;
     updateDebateStatus();
+    showRetryTurn();
   }
+}
+
+/** Show the retry turn button */
+function showRetryTurn() {
+  const btn = $('btnRetryTurn');
+  if (btn) btn.style.display = '';
+}
+
+/** Hide the retry turn button */
+function hideRetryTurn() {
+  const btn = $('btnRetryTurn');
+  if (btn) btn.style.display = 'none';
 }
 
 /** Bind debate phase event listeners */
@@ -166,6 +182,13 @@ function initDebatePhase() {
     if (confirm('Abort this debate?')) {
       appState.debateId && appApi.deleteDebate(appState.debateId);
       resetToSetup();
+    }
+  };
+
+  $('btnRetryTurn').onclick = () => {
+    hideRetryTurn();
+    if (appState.currentSpeaker) {
+      executeNextTurn();
     }
   };
 }

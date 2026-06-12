@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { findDebate } = require('../middleware/debates');
-const { createClient } = require('../utils/openai-client');
+const { createClient, withRetry } = require('../utils/openai-client');
 const { SYSTEM_PROMPT_TRUE, SYSTEM_PROMPT_FALSE } = require('../utils/prompts');
 const { setupSSE, sendChunk, sendDone, sendError } = require('../utils/streaming');
 
@@ -38,9 +38,9 @@ router.post('/debate/:id/next-turn', findDebate, async (req, res) => {
   const client = createClient(endpoint, apiKey);
 
   setupSSE(res);
-  let fullContent = '';
 
-  try {
+  async function runStream() {
+    let content = '';
     const stream = await client.chat.completions.create({
       model,
       messages,
@@ -51,10 +51,16 @@ router.post('/debate/:id/next-turn', findDebate, async (req, res) => {
     for await (const chunk of stream) {
       const delta = chunk.choices?.[0]?.delta?.content || '';
       if (delta) {
-        fullContent += delta;
+        content += delta;
         sendChunk(res, delta);
       }
     }
+    return content;
+  }
+
+  try {
+    let fullContent;
+    fullContent = await withRetry(runStream);
 
     // Save the message
     debate.messages.push({
