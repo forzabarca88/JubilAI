@@ -84,6 +84,19 @@ async function executeNextTurn() {
   try {
     const res = await appApi.nextTurn(appState.debateId, activeSpeaker);
 
+    // Check for non-200 responses (e.g., 400 Bad Request)
+    if (!res.ok) {
+      const errBody = await res.text();
+      contentEl.classList.remove('streaming');
+      contentEl.textContent = `Server error (${res.status}): ${errBody}`;
+      contentEl.style.color = '#e74c3c';
+      showToast(`Server error (${res.status}): ${errBody}`, 'error');
+      appState.isStreaming = false;
+      updateDebateStatus();
+      showRetryTurn();
+      return;
+    }
+
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
 

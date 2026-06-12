@@ -22,6 +22,16 @@ async function runVerdict(judgeModel, endpointJudge) {
   try {
     const res = await appApi.verdict(appState.debateId);
 
+    // Check for non-200 responses (e.g., 400 Bad Request)
+    if (!res.ok) {
+      const errBody = await res.text();
+      if (vr) { vr.classList.remove('streaming'); vr.textContent = `Server error (${res.status}): ${errBody}`; }
+      showToast(`Server error (${res.status}): ${errBody}`, 'error');
+      showRetryVerdict();
+      renderTranscript();
+      return;
+    }
+
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let fullContent = '';
