@@ -6,288 +6,196 @@
 <title>🏛️ LLM Debate Arena</title>
 <link rel="stylesheet" href="css/styles.css">
 </head>
-<body>
+<body class="arena-body">
 
-<header>
-  <h1>🏛️ LLM Debate Arena</h1>
-  <span class="status-badge hidden" id="statusBadge">
-    <span id="statusText"></span>
-  </span>
-</header>
-
-<div class="container">
-
-  <!-- ═══════════════════════════════════════════════════════ -->
-  <!-- PHASE 1: Setup (includes judge config)                -->
-  <!-- ═══════════════════════════════════════════════════════ -->
-  <div class="phase active" id="phase-setup">
-
-    <div class="card">
-      <h2><span class="icon">📝</span> Debate Statement</h2>
-      <div class="form-group">
-        <label>What are we debating?</label>
-        <textarea id="statement" placeholder='e.g., "The Earth is flat" or "AI will surpass human intelligence by 2030"'></textarea>
-      </div>
-    </div>
-
-    <div class="sides-layout">
-      <!-- Affirmative Panel -->
-      <div class="speaker-panel affirmative">
-        <h3><span style="color:var(--affirmative)">●</span> The Affirmative — Argues TRUE</h3>
-
-        <div class="form-group">
-          <label>Endpoint URL</label>
-          <input type="text" id="endpointA" placeholder="http://192.168.0.40:1234">
-        </div>
-        <div class="form-group">
-          <label>API Key <span style="font-weight:400">(optional)</span></label>
-          <input type="password" id="apiKeyA" placeholder="e.g., ollama">
-        </div>
-        <div class="form-group">
-          <label>Model</label>
-          <select id="modelA" disabled>
-            <option value="">— fetch models first —</option>
-          </select>
-        </div>
-        <button class="btn btn-secondary" id="btnFetchA" style="width:100%">
-          🔌 Fetch Models
-        </button>
-        <div id="modelsA" class="hidden" style="margin-top:8px">
-          <div class="helper-text" id="modelsAInfo"></div>
-        </div>
-      </div>
-
-      <!-- Negative Panel -->
-      <div class="speaker-panel negative">
-        <h3><span style="color:var(--negative)">●</span> The Negative — Argues FALSE</h3>
-
-        <div class="form-group">
-          <label>Endpoint URL</label>
-          <input type="text" id="endpointB" placeholder="http://192.168.0.40:1234">
-        </div>
-        <div class="form-group">
-          <label>API Key <span style="font-weight:400">(optional)</span></label>
-          <input type="password" id="apiKeyB" placeholder="e.g., ollama">
-        </div>
-        <div class="form-group">
-          <label>Model</label>
-          <select id="modelB" disabled>
-            <option value="">— fetch models first —</option>
-          </select>
-        </div>
-        <button class="btn btn-secondary" id="btnFetchB" style="width:100%">
-          🔌 Fetch Models
-        </button>
-        <div id="modelsB" class="hidden" style="margin-top:8px">
-          <div class="helper-text" id="modelsBInfo"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Judge Panel (configured at start) -->
-    <div class="judge-panel" style="margin-bottom: 20px;">
-      <h3><span style="color:var(--judge)">⚖️</span> Judge Configuration (Optional)</h3>
-      <p class="judge-helper">Configure a judge model and the debate will auto-judge after all turns complete. Leave blank to select a judge later.</p>
-
-      <div class="form-group">
-        <label>Endpoint URL <span style="font-weight:400">(optional)</span></label>
-        <input type="text" id="endpointJudge" placeholder="http://192.168.0.40:1234">
-      </div>
-      <div class="form-group">
-        <label>API Key <span style="font-weight:400">(optional)</span></label>
-        <input type="password" id="apiKeyJudge" placeholder="e.g., ollama">
-      </div>
-      <div class="form-group">
-        <label>Model <span style="font-weight:400">(optional)</span></label>
-        <select id="judgeModelSelect" disabled>
-          <option value="">— fetch models first —</option>
-        </select>
-      </div>
-      <button class="btn btn-secondary" id="btnFetchJudge" style="width:100%">
-        🔌 Fetch Models
-      </button>
-      <div id="modelsJudge" class="hidden" style="margin-top:8px">
-        <div class="helper-text" id="modelsJudgeInfo"></div>
-      </div>
-    </div>
-
-    <div class="btn-row" style="justify-content:center">
-      <button class="btn btn-primary" id="btnStartDebate" disabled>
-        ⚔️ Start Debate
-      </button>
-    </div>
+<nav class="arena-nav">
+  <div class="nav-brand">
+    <h1 class="nav-title">DEBATE<span class="nav-title--accent">ARENA</span></h1>
   </div>
-
-  <!-- ═══════════════════════════════════════════════════════ -->
-  <!-- PHASE 2: Debate                                       -->
-  <!-- ═══════════════════════════════════════════════════════ -->
-  <div class="phase" id="phase-debate">
-    <div class="statement-display">
-      <div class="label">Debate Statement</div>
-      <div class="text" id="debateStatement"></div>
-    </div>
-
-    <div class="selection-info">
-      <div class="selection-card affirmative">
-        <div class="role">The Affirmative (TRUE)</div>
-        <div class="detail" id="debateModelA"></div>
-        <div class="detail" id="debateEndpointA"></div>
-      </div>
-      <div class="selection-card negative">
-        <div class="role">The Negative (FALSE)</div>
-        <div class="detail" id="debateModelB"></div>
-        <div class="detail" id="debateEndpointB"></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2><span class="icon">💬</span> Debate Progress</h2>
-      <div class="progress-row">
-        <span class="progress-label affirmative">The Affirmative:</span>
-        <div class="progress-bar" id="progressA"></div>
-      </div>
-      <div class="progress-row">
-        <span class="progress-label negative">The Negative:</span>
-        <div class="progress-bar" id="progressB"></div>
-      </div>
-    </div>
-
-    <div class="debate-stream" id="debateStream"></div>
-
-    <div class="btn-row">
-      <button class="btn btn-retry" id="btnRetryTurn" style="display:none">
-        🔄 Retry Turn
-      </button>
-      <button class="btn btn-secondary" id="btnAbortDebate">
-        ✕ Abort
-      </button>
-    </div>
-
-    <!-- TTS Controls -->
-    <div class="tts-controls">
-      <div class="tts-button-group">
-        <button class="tts-btn" id="ttsToggle" onclick="toggleTTSEnable()">
-          🔊 Enable Audio
-        </button>
-        <button class="tts-btn" id="ttsStopBtn" onclick="stopDebateAudio()" disabled>
-          ⏹ Stop
-        </button>
-      </div>
-      <div class="tts-status" id="ttsStatus"></div>
-    </div>
+  <div class="nav-status">
+    <span class="status-indicator hidden" id="statusBadge">
+      <span id="statusText"></span>
+    </span>
   </div>
+</nav>
 
-  <!-- ═══════════════════════════════════════════════════════ -->
-  <!-- PHASE 3: Select Judge (when not pre-configured)         -->
-  <!-- ═══════════════════════════════════════════════════════ -->
-  <div class="phase" id="phase-judge-select">
-    <div class="statement-display">
-      <div class="label">Debate Complete</div>
-      <div class="text" id="judgeStatement"></div>
+<main class="arena-container">
+
+  <!-- PHASE 1: Briefing (Setup) -->
+  <section class="phase active" id="phase-setup">
+    <div class="briefing-header">
+      <h2 class="briefing-title">Briefing & Configuration</h2>
+      <p class="briefing-subtitle">Define the parameters of the intellectual duel.</p>
     </div>
 
-    <div class="judge-panel">
-      <h3><span style="color:var(--judge)">⚖️</span> Select a Judge</h3>
-      <p class="helper-text">Choose a model to evaluate the debate and pick a winner.</p>
-
-      <div class="form-group">
-        <label>Endpoint URL</label>
-        <input type="text" id="endpointJudge2" placeholder="http://192.168.0.40:1234">
-      </div>
-      <div class="form-group">
-        <label>API Key <span style="font-weight:400">(optional)</span></label>
-        <input type="password" id="apiKeyJudge2" placeholder="e.g., ollama">
-      </div>
-      <div class="form-group">
-        <label>Model</label>
-        <select id="judgeModelSelect2" disabled>
-          <option value="">— fetch models first —</option>
-        </select>
-      </div>
-      <button class="btn btn-secondary" id="btnFetchJudge2" style="width:100%;margin-bottom:16px">
-        🔌 Fetch Models
-      </button>
-      <div id="modelsJudge2" class="hidden">
-        <div class="helper-text" id="modelsJudge2Info"></div>
+    <div class="briefing-grid">
+      <div class="briefing-card full-width">
+        <label>The Statement of Dispute</label>
+        <textarea id="statement" placeholder='e.g., "Human consciousness is an emergent property of biological complexity."'></textarea>
       </div>
 
-      <div class="btn-row">
-        <button class="btn btn-primary" id="btnStartJudge2" disabled>
-          ⚖️ Begin Judgment
-        </button>
-        <button class="btn btn-secondary" id="btnNewDebate2">
-          🔄 New Debate
-        </button>
+      <div class="briefing-card side-card">
+        <h3 class="side-header affirmative">The Affirmative</h3>
+        <p class="side-subtitle">Argues the statement is TRUE</p>
+        <div class="input-group">
+          <input type="text" id="endpointA" placeholder="Endpoint URL">
+          <input type="password" id="apiKeyA" placeholder="API Key (Optional)">
+          <select id="modelA" disabled><option value="">— Fetch Models —</option></select>
+        </div>
+        <button class="btn btn-ghost" id="btnFetchA">Synchronize Models</button>
+        <div id="modelsA" class="hidden"><div class="helper-text" id="modelsAInfo"></div></div>
       </div>
-    </div>
-  </div>
 
-  <!-- ═══════════════════════════════════════════════════════ -->
-  <!-- PHASE 4: Verdict                                      -->
-  <!-- ═══════════════════════════════════════════════════════ -->
-  <div class="phase" id="phase-verdict">
-    <div class="statement-display">
-      <div class="label">Debate Statement</div>
-      <div class="text" id="verdictStatement"></div>
-    </div>
-
-    <div class="verdict-card">
-      <div class="verdict-winner" id="verdictWinner"></div>
-      <div style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 8px;">
-        Judge: <span id="verdictJudge" style="font-family: monospace;"></span>
-        &nbsp;|&nbsp;
-        Endpoint: <span id="verdictEndpoint" style="font-family: monospace;"></span>
+      <div class="briefing-card side-card">
+        <h3 class="side-header negative">The Negative</h3>
+        <p class="side-subtitle">Argues the statement is FALSE</p>
+        <div class="input-group">
+          <input type="text" id="endpointB" placeholder="Endpoint URL">
+          <input type="password" id="apiKeyB" placeholder="API Key (Optional)">
+          <select id="modelB" disabled><option value="">— Fetch Models —</option></select>
+        </div>
+        <button class="btn btn-ghost" id="btnFetchB">Synchronize Models</button>
+        <div id="modelsB" class="hidden"><div class="helper-text" id="modelsBInfo"></div></div>
       </div>
-      <div class="verdict-reasoning" id="verdictReasoning"></div>
-    </div>
 
-    <!-- TTS Controls -->
-    <div class="tts-controls" id="ttsControlsVerdict">
-      <div class="tts-button-group">
-        <button class="tts-btn" id="ttsToggleVerdict" onclick="toggleTTSEnable()">
-          🔊 Enable Audio
-        </button>
-        <button class="tts-btn" id="ttsStopBtnVerdict" onclick="stopDebateAudio()" disabled>
-          ⏹ Stop
-        </button>
-      </div>
-      <div class="tts-status" id="ttsStatusVerdict"></div>
-    </div>
-
-    <!-- Debate Transcript Toggle -->
-    <div class="card" style="margin-top: 20px;">
-      <h2><span class="icon">📜</span> Debate Transcript</h2>
-      <div style="display: flex; gap: 10px; margin-bottom: 16px;">
-        <button class="btn btn-secondary" id="btnToggleTranscript" style="flex: 1;">
-          👁️ Show/Hide Debate Transcript
-        </button>
-        <button class="btn btn-primary" id="btnExportMarkdown" style="flex: 1;">
-          📥 Export as Markdown
-        </button>
-      </div>
-      <div id="transcriptContainer" class="hidden" style="margin-top: 16px;">
-        <div class="debate-stream" id="transcriptStream"></div>
+      <div class="briefing-card full-width judge-card">
+        <h3 class="side-header judge">Optional: Pre-configured Judge</h3>
+        <p class="side-subtitle">Auto-judge after the final turn. Leave blank to select later.</p>
+        <div class="input-group">
+          <input type="text" id="endpointJudge" placeholder="Judge Endpoint URL">
+          <input type="password" id="apiKeyJudge" placeholder="Judge API Key (Optional)">
+          <select id="judgeModelSelect" disabled><option value="">— Fetch Models —</option></select>
+        </div>
+        <button class="btn btn-ghost" id="btnFetchJudge">Synchronize Models</button>
+        <div id="modelsJudge" class="hidden"><div class="helper-text" id="modelsJudgeInfo"></div></div>
       </div>
     </div>
 
-    <div class="btn-row" style="justify-content: center; margin-top: 24px;">
-      <button class="btn btn-retry" id="btnRetryVerdict" style="display:none">
-        🔄 Retry Verdict
-      </button>
-      <button class="btn btn-primary" id="btnNewDebate">
-        🔄 Start New Debate
+    <div class="briefing-footer">
+      <button class="btn btn-primary btn-large" id="btnStartDebate" disabled>
+        Commence Debate
       </button>
     </div>
-  </div>
+  </section>
 
-</div>
+  <!-- PHASE 2: The Stage (Debate) -->
+  <section class="phase" id="phase-debate">
+    <div class="stage-layout">
+      <div class="stage-sidebar">
+        <div class="identity-card affirmative">
+          <span class="identity-tag">Affirmative</span>
+          <div class="identity-meta">
+            <div id="debateModelA"></div>
+            <div id="debateEndpointA"></div>
+          </div>
+        </div>
+        <div class="identity-card negative">
+          <span class="identity-tag">Negative</span>
+          <div class="identity-meta">
+            <div id="debateModelB"></div>
+            <div id="debateEndpointB"></div>
+          </div>
+        </div>
+
+        <div class="tension-meter">
+          <div class="tension-label affirmative">Affirmative Progress</div>
+          <div class="tension-track">
+            <div class="tension-fill affirmative" id="progressA"></div>
+          </div>
+          <div class="tension-label negative">Negative Progress</div>
+          <div class="tension-track">
+            <div class="tension-fill negative" id="progressB"></div>
+          </div>
+        </div>
+
+        <div class="stage-controls">
+          <div class="tts-controls">
+            <button class="tts-btn" id="ttsToggle" onclick="toggleTTSEnable()">🔊 Audio</button>
+            <button class="tts-btn" id="ttsStopBtn" onclick="stopDebateAudio()" disabled>⏹ Stop</button>
+            <div class="tts-status" id="ttsStatus"></div>
+          </div>
+          <div class="action-buttons">
+            <button class="btn btn-secondary" id="btnRetryTurn" style="display:none">Retry Turn</button>
+            <button class="btn btn-danger" id="btnAbortDebate">Abort</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage-main">
+        <div class="stage-header">
+          <div class="statement-label">Dispute Statement</div>
+          <div class="statement-content" id="debateStatement"></div>
+        </div>
+        <div class="debate-stream" id="debateStream"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PHASE 3: The Verdict (Judge-Select) -->
+  <section class="phase" id="phase-judge-select">
+    <div class="briefing-header">
+      <h2 class="briefing-title">Judging Phase</h2>
+      <p class="briefing-subtitle">Select a model to adjudicate the dispute.</p>
+    </div>
+
+    <div class="briefing-grid">
+      <div class="briefing-card full-width">
+        <div class="statement-content" id="judgeStatement"></div>
+      </div>
+      <div class="briefing-card full-width judge-card">
+        <div class="input-group">
+          <input type="text" id="endpointJudge2" placeholder="Judge Endpoint URL">
+          <input type="password" id="apiKeyJudge2" placeholder="Judge API Key (Optional)">
+          <select id="judgeModelSelect2" disabled><option value="">— Fetch Models —</option></select>
+        </div>
+        <button class="btn btn-ghost" id="btnFetchJudge2">Synchronize Models</button>
+        <div id="modelsJudge2" class="hidden"><div class="helper-text" id="modelsJudge2Info"></div></div>
+        
+        <div class="action-buttons">
+          <button class="btn btn-primary btn-large" id="btnStartJudge2" disabled>Render Verdict</button>
+          <button class="btn btn-secondary" id="btnNewDebate2">New Dispute</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PHASE 4: The Verdict -->
+  <section class="phase" id="phase-verdict">
+    <div class="verdict-container">
+      <div class="verdict-header">
+        <div class="statement-label">Final Adjudication</div>
+        <div class="statement-content" id="verdictStatement"></div>
+      </div>
+      <div class="verdict-card-content">
+        <div class="verdict-winner" id="verdictWinner"></div>
+        <div class="verdict-meta">
+          <span id="verdictJudge"></span> • <span id="verdictEndpoint"></span>
+        </div>
+        <div class="verdict-reasoning" id="verdictReasoning"></div>
+      </div>
+      
+      <div class="transcript-section">
+        <div class="transcript-header">
+          <span class="statement-label">Full Transcript</span>
+          <button class="btn btn-ghost" id="btnToggleTranscript">Toggle Visibility</button>
+        </div>
+        <div id="transcriptContainer" class="hidden">
+          <div class="debate-stream" id="transcriptStream"></div>
+        </div>
+        
+        <div class="action-buttons">
+          <button class="btn btn-primary btn-large" id="btnExportMarkdown">Export Findings</button>
+          <button class="btn btn-secondary" id="btnNewDebate">New Dispute</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
 
 <div class="toast" id="toast"></div>
 
-<!-- Third-party: Markdown renderer -->
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-
-<!-- Application modules (order matters) -->
 <script src="js/state.js"></script>
 <script src="js/dom-helpers.js"></script>
 <script src="js/api.js"></script>
@@ -299,7 +207,6 @@
 <script src="js/app.js"></script>
 
 <script>
-/** Toggle TTS enable/disable */
 function toggleTTSEnable() {
   appState.ttsEnabled = !appState.ttsEnabled;
   updateTTSEnableButton();
@@ -308,9 +215,7 @@ function toggleTTSEnable() {
   }
 }
 
-/** Update TTS toggle button appearance (both debate and verdict phases) */
 function updateTTSEnableButton() {
-  // Update both sets of TTS controls (debate phase + verdict phase)
   const toggles = [$('ttsToggle'), $('ttsToggleVerdict')];
   const stopBtns = [$('ttsStopBtn'), $('ttsStopBtnVerdict')];
   const statuses = [$('ttsStatus'), $('ttsStatusVerdict')];
@@ -318,11 +223,11 @@ function updateTTSEnableButton() {
   for (const toggle of toggles) {
     if (!toggle) continue;
     if (appState.ttsEnabled) {
-      toggle.innerHTML = '🔊 Disable Audio';
+      toggle.innerHTML = '🔊 Audio On';
       toggle.classList.add('enabled');
       toggle.classList.remove('playing');
     } else {
-      toggle.innerHTML = '🔊 Enable Audio';
+      toggle.innerHTML = '🔊 Audio Off';
       toggle.classList.remove('enabled');
       toggle.classList.remove('playing');
     }
@@ -334,39 +239,27 @@ function updateTTSEnableButton() {
 
   for (const status of statuses) {
     if (!status) continue;
-
     if (!appState.ttsEnabled) {
       status.textContent = '';
       status.className = 'tts-status';
       continue;
     }
-
-    // Build detailed status string
     const parts = [];
     const voices = appState.ttsSpeakerVoices;
-
     if (Object.keys(voices).length === 0) {
-      status.textContent = 'Initializing Kokoro TTS model…';
+      status.textContent = 'Initializing Kokoro...';
       status.className = 'tts-status loading';
       continue;
     }
-
-    // Voice info
-    parts.push(`Voices: Aff=${voices.A}, Neg=${voices.B}, Judge=${voices.judge}`);
-
+    parts.push(`Voices: A:${voices.A} | N:${voices.B} | J:${voices.judge}`);
     let stateClass = 'active';
-
-    // Generation queue depth
     if (ttsManager._pendingGenerations && ttsManager._pendingGenerations.length > 0) {
       parts.push(`Queue: ${ttsManager._pendingGenerations.length}`);
       stateClass = 'generating';
     }
-
-    // Audio playback state
     if (ttsManager.isPlaying) {
       parts.push('▶ Playing');
       stateClass = 'playing';
-      // Update toggle buttons to playing state
       for (const toggle of toggles) {
         if (toggle) {
           toggle.classList.add('playing');
@@ -376,15 +269,12 @@ function updateTTSEnableButton() {
     } else if (ttsManager.hasQueuedAudio()) {
       parts.push(`Buffered: ${ttsManager.audioQueue.length}`);
     }
-
     status.textContent = parts.join(' | ');
     status.className = `tts-status ${stateClass}`;
   }
 }
 
-/** Periodic TTS status polling — updates display while streaming */
 let ttsStatusInterval = null;
-
 function startTTSStatusPoll() {
   if (ttsStatusInterval) return;
   ttsStatusInterval = setInterval(() => {
@@ -395,24 +285,19 @@ function startTTSStatusPoll() {
     }
   }, 500);
 }
-
 function stopTTSStatusPoll() {
   if (ttsStatusInterval) {
     clearInterval(ttsStatusInterval);
     ttsStatusInterval = null;
   }
-  // Final refresh
   updateTTSEnableButton();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Initialize all phases
   initSetupPhase();
   initDebatePhase();
   initJudgeSelectPhase();
   initVerdictPhase();
-
-  // Bind new-debate buttons
   $('btnNewDebate').onclick = resetToSetup;
   $('btnNewDebate2').onclick = resetToSetup;
 });

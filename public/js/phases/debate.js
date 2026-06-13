@@ -2,24 +2,17 @@
  * Debate Phase — progress tracking, status updates, and turn execution.
  */
 
-/** Render progress dots for both sides */
+/** Render progress for both sides using the tension bar layout */
 function renderDebateProgress() {
-  const progA = $('progressA');
-  const progB = $('progressB');
-  if (progA) progA.innerHTML = '';
-  if (progB) progB.innerHTML = '';
-
-  for (let i = 0; i < appState.maxTurns; i++) {
-    if (progA) {
-      const dotA = document.createElement('div');
-      dotA.className = 'progress-dot' + (i < appState.countA ? ' filled-a' : '');
-      progA.appendChild(dotA);
-    }
-    if (progB) {
-      const dotB = document.createElement('div');
-      dotB.className = 'progress-dot' + (i < appState.countB ? ' filled-b' : '');
-      progB.appendChild(dotB);
-    }
+  const fillA = $('progressA');
+  const fillB = $('progressB');
+  if (fillA) {
+    const percentage = (appState.countA / appState.maxTurns) * 100;
+    fillA.style.width = `${percentage}%`;
+  }
+  if (fillB) {
+    const percentage = (appState.countB / appState.maxTurns) * 100;
+    fillB.style.width = `${percentage}%`;
   }
 }
 
