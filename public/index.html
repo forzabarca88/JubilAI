@@ -185,7 +185,14 @@
         
         <div class="action-buttons">
           <button class="btn btn-primary btn-large" id="btnExportMarkdown">Export Findings</button>
+          <button class="btn btn-secondary" id="btnRetryVerdict" style="display:none">Retry Verdict</button>
           <button class="btn btn-secondary" id="btnNewDebate">New Dispute</button>
+        </div>
+
+        <div class="tts-controls verdict-tts-controls">
+          <button class="tts-btn" id="ttsToggleVerdict" onclick="toggleTTSEnable()">🔊 Audio</button>
+          <button class="tts-btn" id="ttsStopBtnVerdict" onclick="stopDebateAudio()" disabled>⏹ Stop</button>
+          <div class="tts-status" id="ttsStatusVerdict"></div>
         </div>
       </div>
     </div>

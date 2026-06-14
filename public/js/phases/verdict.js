@@ -144,7 +144,7 @@ function renderTranscript() {
 
     appState.debateData.messages.forEach(msg => {
       const msgDiv = document.createElement('div');
-      msgDiv.className = `message side-${msg.speaker.toLowerCase()}`;
+      msgDiv.className = `message ${msg.speaker === 'A' ? 'affirmative' : 'negative'}`;
       const speakerLabel = msg.speaker === 'A' ? 'The Affirmative (TRUE)' : 'The Negative (FALSE)';
 
       msgDiv.innerHTML = `
@@ -290,7 +290,8 @@ function initVerdictPhase() {
 
   $('btnExportMarkdown').onclick = exportMarkdown;
 
-  $('btnRetryVerdict').onclick = () => {
+  const btnRetry = $('btnRetryVerdict');
+  if (btnRetry) btnRetry.onclick = () => {
     hideRetryVerdict();
     const judgeModel = appState.debateData?.judgeModel;
     const endpointJudge = appState.debateData?.endpointJudge;
