@@ -36,7 +36,7 @@ Phases: `debating` → `awaiting-judge` or `judging` → `complete`
 - **debating**: Turns alternate between The Affirmative and The Negative (3 turns each by default via `maxTurns: 3`). Auto-advances after each turn.
 - **awaiting-judge**: Reached when debate finishes but no judge was pre-configured. Frontend shows judge-select phase.
 - **judging**: Either auto-transitioned (if judge pre-configured) or manually triggered from judge-select.
-- **complete**: Verdict rendered, winner determined by parsing `Winner: Side [AB]` from verdict text.
+- **complete**: Verdict rendered, winner determined by parsing `Winner: Side [AB]` from verdict text. Verdict can be retried from this phase via `btnRetryVerdict`.
 
 If `autoJudge` is true (judge configured in setup), the frontend auto-triggers `runVerdict()` after the last turn. Otherwise it transitions to judge-select.
 
@@ -88,6 +88,7 @@ Defined in `src/utils/prompts.js`:
 ## Key DOM Element IDs
 - Setup phase: `statement`, `endpointA/B`, `apiKeyA/B`, `modelA/B`, `btnFetchA/B`, `btnStartDebate`, plus judge equivalents
 - Debate phase: `debateStream` (message container), `progressA/B`, `statusBadge`, `btnRetryTurn`, `btnAbortDebate`
-- TTS controls: `ttsToggle` (enable/disable button), `ttsStopBtn` (stop button), `ttsStatus` (voice info display)
+- TTS controls (debate): `ttsToggle` (enable/disable button), `ttsStopBtn` (stop button), `ttsStatus` (voice info display)
+- TTS controls (verdict): `ttsToggleVerdict`, `ttsStopBtnVerdict`, `ttsStatusVerdict`
 - Verdict phase: `verdictWinner`, `verdictReasoning`, `transcriptContainer`, `btnToggleTranscript`, `btnExportMarkdown`, `btnRetryVerdict`
 - Judge-select phase: `endpointJudge2`, `judgeModelSelect2`, `btnFetchJudge2`, `btnStartJudge2`

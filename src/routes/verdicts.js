@@ -30,7 +30,7 @@ router.post('/debate/:id/judge', findDebate, (req, res) => {
 router.post('/debate/:id/verdict', findDebate, async (req, res) => {
   const debate = req.debate;
 
-  if (debate.phase !== 'judging' && debate.phase !== 'awaiting-judge') {
+  if (debate.phase !== 'judging' && debate.phase !== 'awaiting-judge' && debate.phase !== 'complete') {
     return res.status(400).json({ error: 'Debate is not in judging phase. Set up a judge first.' });
   }
 
