@@ -17,9 +17,9 @@ Scripts in `public/index.html` are loaded in this strict order:
 2. `js/dom-helpers.js` — `$()` helper with null guard, `showPhase()`, `showToast()`, scroll helpers
 3. `js/api.js` — Global `appApi` object wrapping all fetch calls to `/api/*` endpoints
 4. `js/tts-manager.js` — Real-time TTS using kokoro-js with WebGPU (sentence batching, serial generation queue, audio playback, random voice assignment)
-5. `js/phases/setup.js` — Model fetching, readiness checks, debate creation, TTS initialization
+5. `js/phases/setup.js` — Model fetching via `fetchModelsFor(panel)` which reads from setup-phase DOM elements (`endpointA/B/Judge`, `apiKeyA/B/Judge`, `modelA/B`, `judgeModelSelect`), readiness checks (clicking disabled start button shows toast with missing requirements), debate creation, TTS initialization
 6. `js/phases/debate.js` — Turn execution, streaming display, progress tracking, auto-advance, TTS text feeding
-7. `js/phases/judge-select.js` — Shown only when judge was NOT pre-configured in setup
+7. `js/phases/judge-select.js` — Shown only when judge was NOT pre-configured in setup. Has its own `fetchModelsForJudgeSelect()` function that reads from `*2` DOM elements (`endpointJudge2`, `apiKeyJudge2`, `judgeModelSelect2`). Do NOT call `fetchModelsFor('Judge')` from this phase — that function reads from setup-phase elements (`endpointJudge`, etc.) which are hidden and empty.
 8. `js/phases/verdict.js` — Verdict streaming, transcript rendering, markdown export, TTS for judge voice
 9. `js/app.js` — `resetToSetup()` function that resets all state and DOM
 
@@ -81,12 +81,16 @@ Defined in `src/utils/prompts.js`:
 ## CSS Architecture
 - Dark theme with CSS custom properties in `:root`
 - Color coding: The Affirmative = green (`--affirmative`), The Negative = orange (`--negative`), Judge = gold (`--judge`)
+- Toast notifications: Fixed-position, top-center, slide-down animation. `.toast.error` (red/negative), `.toast.success` (green/affirmative), `.toast.info` (purple/accent). Auto-dismiss after 3s. Full-width on narrow screens (<500px)
+- Disabled buttons: `.btn-disabled` CSS class (opacity + cursor) instead of HTML `disabled` attribute, so click events still fire for feedback. Uses `aria-disabled` for accessibility
 - Streaming indicator: blinking cursor via `::after` pseudo-element with `animation: blink`
 - TTS controls: `.tts-controls` container, `.tts-btn` with states (default/enabled/playing), `.tts-status` with states (loading/active)
 - Responsive: single-column layout below 700px
 
 ## Key DOM Element IDs
-- Setup phase: `statement`, `endpointA/B`, `apiKeyA/B`, `modelA/B`, `btnFetchA/B`, `btnStartDebate`, plus judge equivalents
+- Setup phase: `statement`, `endpointA/B`, `apiKeyA/B`, `modelA/B`, `btnFetchA/B`, `btnStartDebate`, plus judge equivalents (`endpointJudge`, `apiKeyJudge`, `judgeModelSelect`, `btnFetchJudge`, `modelsJudge`, `modelsJudgeInfo`)
+- Judge-select phase: `endpointJudge2`, `apiKeyJudge2`, `judgeModelSelect2`, `btnFetchJudge2`, `btnStartJudge2`, `modelsJudge2`, `modelsJudge2Info`, `judgeStatement`
+- Note: Setup and judge-select phases have separate DOM elements (IDs without suffix vs `*2` suffix). Each phase's fetch/readiness functions must use its own elements.
 - Debate phase: `debateStream` (message container), `progressA/B`, `statusBadge`, `btnRetryTurn`, `btnAbortDebate`
 - TTS controls (debate): `ttsToggle` (enable/disable button), `ttsStopBtn` (stop button), `ttsStatus` (voice info display)
 - TTS controls (verdict): `ttsToggleVerdict`, `ttsStopBtnVerdict`, `ttsStatusVerdict`

@@ -40,9 +40,68 @@ function checkJudgeSelectReady() {
   if (btn) btn.disabled = !(hasModel && hasEndpoint);
 }
 
+/** Fetch models for the judge-select phase (reads from *2 elements, not setup-phase elements) */
+async function fetchModelsForJudgeSelect() {
+  const endpointEl = $('endpointJudge2');
+  const apiKeyEl = $('apiKeyJudge2');
+  if (!endpointEl) { showToast('Missing element: endpointJudge2', 'error'); return; }
+
+  const url = endpointEl.value.trim().replace(/\/+$/, '');
+  const apiKey = apiKeyEl ? apiKeyEl.value.trim() : '';
+
+  if (!url) { showToast('Please enter an endpoint URL', 'error'); return; }
+
+  const fetchBtn = $('btnFetchJudge2');
+  if (fetchBtn) {
+    fetchBtn.innerHTML = '<span class="spinner"></span> Fetching...';
+    fetchBtn.disabled = true;
+  }
+
+  try {
+    const res = await appApi.fetchModels(url, apiKey);
+    const data = await res.json();
+
+    if (!res.ok) { showToast(data.error || 'Failed to fetch models', 'error'); return; }
+
+    const models = data.models || [];
+    appState.modelsJudge = models;
+
+    const select = $('judgeModelSelect2');
+    if (select) {
+      const oldOnChange = select.onchange;
+      select.onchange = null;
+      select.innerHTML = '<option value="">— select a model —</option>';
+      models.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.id;
+        select.appendChild(opt);
+      });
+      select.disabled = false;
+      select.onchange = oldOnChange;
+    }
+
+    const modelsDiv = $('modelsJudge2');
+    const modelsInfo = $('modelsJudge2Info');
+    if (modelsDiv) modelsDiv.classList.remove('hidden');
+    if (modelsInfo) modelsInfo.textContent = `${models.length} models available`;
+
+    showToast(`Found ${models.length} models for Judge`, 'success');
+  } catch (err) {
+    showToast('Network error: ' + err.message, 'error');
+  } finally {
+    if (fetchBtn) {
+      fetchBtn.innerHTML = '🔄 Refresh';
+      fetchBtn.disabled = false;
+    }
+  }
+
+  checkJudgeSelectReady();
+}
+
 /** Bind judge-select phase event listeners */
 function initJudgeSelectPhase() {
-  $('btnFetchJudge2').onclick = () => fetchModelsFor('Judge');
+  $('btnFetchJudge2').onclick = () => fetchModelsForJudgeSelect();
   $('judgeModelSelect2').onchange = checkJudgeSelectReady;
   $('endpointJudge2').oninput = checkJudgeSelectReady;
 

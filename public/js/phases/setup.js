@@ -63,19 +63,14 @@ async function fetchModelsFor(panel) {
     if (modelsDiv) modelsDiv.classList.remove('hidden');
     if (modelsInfo) modelsInfo.textContent = `${models.length} models available`;
 
+    showToast(`Found ${models.length} models for ${panel === 'Judge' ? 'Judge' : panel === 'A' ? 'The Affirmative' : 'The Negative'}`, 'success');
+  } catch (err) {
+    showToast('Network error: ' + err.message, 'error');
+  } finally {
     if (fetchBtn) {
       fetchBtn.innerHTML = '🔄 Refresh';
       fetchBtn.disabled = false;
     }
-
-    showToast(`Found ${models.length} models for ${panel === 'Judge' ? 'Judge' : panel === 'A' ? 'The Affirmative' : 'The Negative'}`, 'success');
-  } catch (err) {
-    showToast('Network error: ' + err.message, 'error');
-  }
-
-  if (fetchBtn) {
-    fetchBtn.innerHTML = '🔄 Refresh';
-    fetchBtn.disabled = false;
   }
 
   checkSetupReady();
@@ -96,7 +91,20 @@ function checkSetupReady() {
   const hasEndpointA = eA && eA.value.trim().length > 0;
   const hasEndpointB = eB && eB.value.trim().length > 0;
 
-  if (btn) btn.disabled = !(hasStatement && hasModelA && hasModelB && hasEndpointA && hasEndpointB);
+  const ready = hasStatement && hasModelA && hasModelB && hasEndpointA && hasEndpointB;
+  if (btn) {
+    btn.classList.toggle('btn-disabled', !ready);
+    btn.ariaDisabled = ready ? 'false' : 'true';
+  }
+
+  // Build hint for click feedback
+  const missing = [];
+  if (!hasStatement) missing.push('Statement');
+  if (!hasEndpointA) missing.push('Affirmative endpoint');
+  if (!hasModelA) missing.push('Affirmative model');
+  if (!hasEndpointB) missing.push('Negative endpoint');
+  if (!hasModelB) missing.push('Negative model');
+  btn._missing = missing;
 }
 
 /** Bind setup phase event listeners */
@@ -107,15 +115,23 @@ function initSetupPhase() {
   $('statement').oninput = checkSetupReady;
   $('endpointA').oninput = checkSetupReady;
   $('endpointB').oninput = checkSetupReady;
+  $('modelA').onchange = checkSetupReady;
+  $('modelB').onchange = checkSetupReady;
 
   $('btnStartDebate').onclick = async () => {
+    const btn = $('btnStartDebate');
+    if (btn.classList.contains('btn-disabled') && btn._missing && btn._missing.length > 0) {
+      showToast('Need: ' + btn._missing.join(', '), 'error');
+      return;
+    }
+
     const stmt = $('statement');
     const statement = stmt ? stmt.value.trim() : '';
     if (!statement) { showToast('Please enter a statement', 'error'); return; }
 
-    const btn = $('btnStartDebate');
     if (btn) {
-      btn.disabled = true;
+      btn.classList.add('btn-disabled');
+      btn.ariaDisabled = 'true';
       btn.innerHTML = '<span class="spinner"></span> Starting...';
     }
 
@@ -200,7 +216,8 @@ function initSetupPhase() {
     }
 
     if (btn) {
-      btn.disabled = false;
+      btn.classList.remove('btn-disabled');
+      btn.ariaDisabled = 'false';
       btn.innerHTML = '⚔️ Start Debate';
     }
   };
