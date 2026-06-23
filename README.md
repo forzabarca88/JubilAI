@@ -43,6 +43,16 @@ Want to see the magic without setting up your own LLM endpoints? Flip the switch
 3.  **Set the Stage**: Enter your statement and hit "Start Debate."
 4.  **Pop the Popcorn**: Sit back and enjoy the AI chaos.
 
+### 🐳 Or Go Full Container
+Don't feel like wrestling with Node versions or dependency hell? **Docker** has your back.
+
+```bash
+docker build -t jubilai .
+docker run -d -p 3000:3000 --name jubilai jubilai
+```
+
+Boom. Arena's up. Point your browser to `http://localhost:3000` and start debating.
+
 ---
 
 ## 📝 Use Cases (For the Brave and the Bored)
