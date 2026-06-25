@@ -1,8 +1,7 @@
 # ──────────────────────────────────────────────────────────────
 # Stage 1: Install production dependencies
 # ──────────────────────────────────────────────────────────────
-FROM node:24-alpine AS builder
-
+FROM node:24.16.0-alpine AS builder
 WORKDIR /app
 
 # Copy dependency manifests first (leveraged across builds)
@@ -14,7 +13,7 @@ RUN npm ci --omit=dev
 # ──────────────────────────────────────────────────────────────
 # Stage 2: Runtime image
 # ──────────────────────────────────────────────────────────────
-FROM node:24-alpine
+FROM node:24.16.0-alpine
 
 # Metadata
 LABEL org.opencontainers.image.title="LLM Debate Arena"
