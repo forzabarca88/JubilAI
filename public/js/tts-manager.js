@@ -80,8 +80,8 @@ class RealtimeTTSManager {
       await new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
           this.worker.removeEventListener('message', onInit);
-          reject(new Error('TTS initialization timed out after 60s'));
-        }, 60000);
+          reject(new Error('TTS initialization timed out after 120s'));
+        }, 120000);
 
         const onInit = (e) => {
           if (e.data.type === 'ready') {
