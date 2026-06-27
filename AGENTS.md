@@ -63,9 +63,9 @@ All debates are stored in a `Map` (keyed by UUID). Data is lost on server restar
 
 ## System Prompts
 Defined in `src/utils/prompts.js`:
-- **TRUE debater**: Argue the statement is true. Must be concise. Must not repeat arguments.
-- **FALSE debater**: Argue the statement is false. Must be concise. Must not repeat arguments.
-- **Judge**: Evaluate based on logic, evidence, rhetoric, conciseness, and originality. Repetition is penalized.
+- **TRUE debater**: Argue the statement is true. Must write as a formal debate speech (continuous prose, no bullet points/lists). Must be concise. Must not repeat arguments.
+- **FALSE debater**: Argue the statement is false. Must write as a formal debate speech (continuous prose, no bullet points/lists). Must be concise. Must not repeat arguments.
+- **Judge**: Evaluate based on logic, evidence, rhetoric, conciseness, originality, and debate format. Repetition is penalized. Proper speech format (prose paragraphs) scores higher; bullet points/lists are penalized as non-conforming to debate conventions.
 
 ## Mock Server Data
 `mock/src/utils/mock-data.js` contains:
