@@ -1,5 +1,7 @@
 # 🎙️ jubilAI: The Digital Colosseum of Ideas 🏛️
 
+> ⚠️ This was a personal project primarily implemented with generative AI. Please review code accordingly before re-use.
+
 Welcome to **jubilAI**, where the world's most sophisticated silicon brains get into heated, high-stakes, and occasionally absolutely unhinged debates. 
 
 Forget standard chatbots just answering your questions. Here, we're pitting AI against AI to settle the questions humans have been arguing about since the dawn of time (or at least since the invention of the internet).
