@@ -19,7 +19,9 @@ router.post('/debate/:id/next-turn', findDebate, async (req, res) => {
   }
 
   const model = speaker === 'A' ? debate.modelA : debate.modelB;
-  const systemPrompt = speaker === 'A' ? SYSTEM_PROMPT_TRUE : SYSTEM_PROMPT_FALSE;
+  const systemPrompt = speaker === 'A'
+    ? (debate.customPromptA || SYSTEM_PROMPT_TRUE)
+    : (debate.customPromptB || SYSTEM_PROMPT_FALSE);
   const endpoint = speaker === 'A' ? debate.endpointA : debate.endpointB;
   const apiKey = speaker === 'A' ? debate.apiKeyA : debate.apiKeyB;
 
@@ -41,12 +43,22 @@ router.post('/debate/:id/next-turn', findDebate, async (req, res) => {
 
   async function runStream() {
     let content = '';
-    const stream = await client.chat.completions.create({
+    const streamOptions = {
       model,
       messages,
       stream: true,
-      temperature: 0.7,
-    });
+      temperature: debate.temperature ?? 0.7,
+    };
+    if (debate.topP !== null && debate.topP !== undefined) {
+      streamOptions.top_p = debate.topP;
+    }
+    if (debate.topK !== null && debate.topK !== undefined && debate.topK > 0) {
+      streamOptions.top_k = debate.topK;
+    }
+    if (debate.maxTokens !== null && debate.maxTokens !== undefined && debate.maxTokens > 0) {
+      streamOptions.max_tokens = debate.maxTokens;
+    }
+    const stream = await client.chat.completions.create(streamOptions);
 
     for await (const chunk of stream) {
       const delta = chunk.choices?.[0]?.delta?.content || '';

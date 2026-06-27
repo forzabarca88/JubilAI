@@ -169,6 +169,9 @@ function initSetupPhase() {
     const endpointJudge = $('endpointJudge')?.value.trim().replace(/\/+$/, '') || '';
     const apiKeyJudge = $('apiKeyJudge')?.value.trim() || '';
 
+    // Gather advanced settings (prompts + LLM params)
+    const settings = gatherAdvancedSettings();
+
     try {
       const res = await appApi.createDebate({
         statement,
@@ -181,6 +184,20 @@ function initSetupPhase() {
         judgeModel: judgeModel || null,
         endpointJudge: endpointJudge || null,
         apiKeyJudge: apiKeyJudge || null,
+        // Custom prompts (only send if non-empty)
+        promptA: settings.promptA || undefined,
+        promptB: settings.promptB || undefined,
+        promptJudge: settings.promptJudge || undefined,
+        // LLM parameters (only send if explicitly set)
+        temperature: settings.temperature !== undefined ? settings.temperature : undefined,
+        topP: settings.topP !== undefined ? settings.topP : undefined,
+        topK: settings.topK !== undefined ? settings.topK : undefined,
+        maxTokens: settings.maxTokens !== undefined ? settings.maxTokens : undefined,
+        // Judge LLM parameters (only send if explicitly set)
+        judgeTemperature: settings.judgeTemperature !== undefined ? settings.judgeTemperature : undefined,
+        judgeTopP: settings.judgeTopP !== undefined ? settings.judgeTopP : undefined,
+        judgeTopK: settings.judgeTopK !== undefined ? settings.judgeTopK : undefined,
+        judgeMaxTokens: settings.judgeMaxTokens !== undefined ? settings.judgeMaxTokens : undefined,
       });
 
       const data = await res.json();
@@ -198,6 +215,18 @@ function initSetupPhase() {
         endpointJudge,
         apiKeyJudge,
         modelJudge: judgeModel,
+        // Advanced settings
+        promptA: settings.promptA,
+        promptB: settings.promptB,
+        promptJudge: settings.promptJudge,
+        temperature: settings.temperature,
+        topP: settings.topP,
+        topK: settings.topK,
+        maxTokens: settings.maxTokens,
+        judgeTemperature: settings.judgeTemperature,
+        judgeTopP: settings.judgeTopP,
+        judgeTopK: settings.judgeTopK,
+        judgeMaxTokens: settings.judgeMaxTokens,
       };
       appSession.save(saveConfig).catch(err => {
         console.warn('[Session] Save failed:', err.message);

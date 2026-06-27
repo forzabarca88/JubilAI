@@ -19,7 +19,9 @@ const appSession = {
   LS_KEY_PLAIN: 'jubilai_session_plain',
 
   // Fields that are safe to store in plaintext (no secrets)
-  SAFE_FIELDS: ['statement', 'endpointA', 'endpointB', 'endpointJudge', 'modelA', 'modelB', 'modelJudge'],
+  SAFE_FIELDS: ['statement', 'endpointA', 'endpointB', 'endpointJudge', 'modelA', 'modelB', 'modelJudge',
+    'promptA', 'promptB', 'promptJudge', 'temperature', 'topP', 'topK', 'maxTokens',
+    'judgeTemperature', 'judgeTopP', 'judgeTopK', 'judgeMaxTokens'],
 
   // Fields that contain secrets (API keys) — only stored when encryption is available
   SECRET_FIELDS: ['apiKeyA', 'apiKeyB', 'apiKeyJudge'],
@@ -321,14 +323,35 @@ const appSession = {
       ['endpointB', 'endpointB'],
       ['apiKeyB', 'apiKeyB'],
       ['endpointJudge', 'endpointJudge'],
-      ['apiKeyJudge', 'apiKeyJudge']
+      ['apiKeyJudge', 'apiKeyJudge'],
+      ['promptA', 'promptA'],
+      ['promptB', 'promptB'],
+      ['promptJudge', 'promptJudge'],
+      ['temperature', 'temperature'],
+      ['topP', 'topP'],
+      ['topK', 'topK'],
+      ['maxTokens', 'maxTokens'],
+      ['judgeTemperature', 'judgeTemperature'],
+      ['judgeTopP', 'judgeTopP'],
+      ['judgeTopK', 'judgeTopK'],
+      ['judgeMaxTokens', 'judgeMaxTokens']
     ];
 
     for (const [domId, cfgKey] of textFields) {
       const el = $(domId);
-      if (el && config[cfgKey]) {
-        el.value = config[cfgKey];
-      }
+      if (!el || config[cfgKey] === undefined || config[cfgKey] === null) continue;
+
+      // For params that weren't sent before (topP, topK, maxTokens),
+      // only restore if the value differs from server defaults
+      const val = config[cfgKey];
+      if (cfgKey === 'topP' && (val === 1 || val === '1')) continue;
+      if (cfgKey === 'topK' && (val === 0 || val === '0')) continue;
+      if (cfgKey === 'maxTokens' && (val === 0 || val === '0')) continue;
+      if (cfgKey === 'judgeTopP' && (val === 1 || val === '1')) continue;
+      if (cfgKey === 'judgeTopK' && (val === 0 || val === '0')) continue;
+      if (cfgKey === 'judgeMaxTokens' && (val === 0 || val === '0')) continue;
+
+      el.value = config[cfgKey];
     }
 
     // Model selects — only set after dropdowns are populated (afterFetch = true)
