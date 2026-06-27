@@ -1,387 +1,261 @@
-# JubilAI TypeScript Refactor — Implementation Plan
+# JubilAI — Migration Plan (TypeScript + Dual Server)
 
-> **Goal**: Convert the entire codebase to TypeScript, eliminate duplication, centralize all configuration, and restructure modules for optimal separation of concerns.
->
-> **Scope**: Server (real + mock), Frontend, shared types, and configuration. CSS and HTML remain largely unchanged (design is not in scope).
+> **Status**: Phase 1–5 complete with bugs. Phase 6 blocked until bugs are fixed.
+> **Last reviewed**: 2026-06-27
 
----
+## Phase 1: Foundation — Config + Shared Types
 
-## 1. Problems Identified
+**Status**: ✅ COMPLETE (with minor notes)
 
-### 1.1 Hardcoded Configuration Values (Scattered, No Single Source of Truth)
+### 1.1 Config file (`config.json`)
+- [x] Created with server, client, debate, and tts sections
+- [x] HTTPS endpoints, auto-advance/judge delays, TTS voice pool, worker config
+- [x] `config.tts.device` = `"wasm"` (no WebGPU)
 
-| Constant | Location(s) | Value |
-|---|---|---|
-| `maxTurns` | `src/routes/debates.js`, `public/js/state.js` | `3` |
-| Default debater temperature | `src/routes/turns.js`, `public/index.html` | `0.7` |
-| Default judge temperature | `src/routes/verdicts.js`, `public/index.html` | `0.5` |
-| Default API key | `src/utils/openai-client.js`, `src/routes/debates.js`, `mock/src/routes/debates.js`, `mock/src/routes/verdicts.js` | `'ollama'` |
-| Retry delay | `src/utils/openai-client.js` | `5000` ms |
-| Real server port | `server.js` | `3000` |
-| Mock server port | `mock-server.js` | `3001` |
-| TTS model ID | `public/js/tts-manager.js`, `public/js/tts-worker.js` | `'onnx-community/Kokoro-82M-v1.0-ONNX'` |
-| TTS dtype | `public/js/tts-manager.js`, `public/js/tts-worker.js` | `'q4'` |
-| TTS device | `public/js/tts-manager.js`, `public/js/tts-worker.js` | `'wasm'` |
-| TTS voice pool | `public/js/tts-manager.js` | 28 voices |
-| TTS worker timeout | `public/js/tts-manager.js` | `120000` ms |
-| TTS sentence buffer cap | `public/js/tts-manager.js` | `5000` chars |
-| TTS streaming chunk size | `mock/src/utils/streaming.js` | `3` chars |
-| TTS streaming delay | `mock/src/utils/streaming.js` | `15` ms |
-| Toast auto-dismiss | `public/js/dom-helpers.js` | `3000` ms |
-| Debate auto-advance delay | `public/js/phases/debate.js` | `1500` ms |
-| Judge auto-transition delay | `public/js/phases/debate.js` | `1000` ms |
-| Session DB name/version | `public/js/session-storage.js` | `'jubilai_storage'` / `1` |
-| Session localStorage keys | `public/js/session-storage.js` | `'jubilai_session'`, `'jubilai_session_plain'` |
-| System prompts (TRUE/FALSE/JUDGE) | `src/utils/prompts.js` AND `public/index.html` inline script | Identical text duplicated |
+### 1.2 Shared type definitions (`shared/types/`)
+- [x] `config.ts` — interfaces for all config sections
+- [x] `debate.ts` — Debate, DebateCreateBody, DebateMessage, Speaker, etc.
+- [x] `api.ts` — ModelInfo, SSE event types
+- [x] `sse.ts` — SSEChunkEvent, SSdoneEvent (typo: double-S prefix), SSEErrorEvent, SSEEvent union
+  - **Note**: `SSdoneEvent` has a double-S prefix typo. Consistent throughout codebase but wrong.
 
-### 1.2 Duplication Between Real and Mock Servers
+### 1.3 TypeScript configuration
+- [x] Root `tsconfig.json` (shared settings: ES2022, strict mode, `paths` for `@shared/*`)
+- [x] `tsconfig.server.json` (extends root, outDir: `dist/server`, Node20 target)
+- [x] `tsconfig.client.json` (extends root, outDir: `dist/client`, ES2022 target)
 
-| Shared Concern | Real (`src/`) | Mock (`mock/src/`) |
-|---|---|---|
-| Express app setup (CORS, JSON, COOP/COEP, static) | `src/app.js` | `mock/src/app.js` — **identical** |
-| Debate middleware (Map + findDebate) | `src/middleware/debates.js` | `mock/src/middleware/debates.js` — **identical** |
-| Route index (mounts models, debates, turns, verdicts) | `src/routes/index.js` | `mock/src/routes/index.js` — **identical** |
-| SSE streaming helpers | `src/utils/streaming.js` | `mock/src/utils/streaming.js` — **different API but same purpose** |
-| Debate CRUD routes | `src/routes/debates.js` | `mock/src/routes/debates.js` — **nearly identical structure** (mock lacks advanced settings) |
-
-### 1.3 Suboptimal Frontend Module Structure
-
-- **Global namespace pollution**: `appState`, `appApi`, `appSession`, `ttsManager`, `showPhase`, `showToast`, `$`, `DEFAULT_PROMPTS`, etc. are all global variables.
-- **Inline `<script>` block in `index.html`**: Contains `toggleTTSEnable`, `pauseDebateAudioAndUI`, `resumeDebateAudioAndUI`, `updateTTSEnableButton`, `toggleAdvancedSettings`, `resetPrompt`, `gatherAdvancedSettings`, `DEFAULT_PROMPTS`, and `DOMContentLoaded` init — mixing UI logic, config, and init hooks in one massive block.
-- **`onclick` HTML attributes**: `toggleTTSEnable()`, `pauseDebateAudioAndUI()`, `resumeDebateAudioAndUI()`, `toggleAdvancedSettings()`, `resetPrompt('A')` etc. are wired via HTML `onclick` rather than `addEventListener` in JS.
-- **TTS status polling**: `startTTSStatusPoll`/`stopTTSStatusPoll` are globals that poll every 500ms — fragile and not encapsulated.
-- **`resetToSetup()` in `app.js`**: 80+ lines of DOM manipulation resetting every field individually — should be a state-driven reset.
-- **`fetchModelsFor(panel)` in `setup.js`**: Uses string-based panel dispatch (`'A' | 'B' | 'Judge'`) to map to DOM element IDs — fragile, not type-safe.
-
-### 1.4 Missing Type Safety
-
-All code is plain JavaScript. No type checking at compile time. Runtime errors from typos, wrong shapes, or null references are common (e.g., `$()` null-guard pattern used everywhere).
+### 1.4 Package.json — devDependencies
+- [x] `typescript`, `esbuild`, `tsx` added
+- [x] Build scripts added: `build`, `build:server`, `build:client`, `build:tts`
+- [x] Dev scripts: `dev:server`, `dev:client`
 
 ---
 
-## 2. Target Architecture
+## Phase 2: Shared Utilities
 
-```
-jubilAI/
-├── config/
-│   └── config.json              # Single source of truth for all config values
-├── shared/
-│   ├── types/
-│   │   ├── debate.ts            # Debate, Message, Phase, Speaker types
-│   │   ├── api.ts               # Request/response types for all API endpoints
-│   │   ├── config.ts            # TypeScript interface for config.json
-│   │   └── sse.ts               # SSE event types (ChunkEvent, DoneEvent, ErrorEvent)
-│   ├── utils/
-│   │   ├── streaming.ts         # SSE helpers (setupSSE, sendChunk, sendDone, sendError)
-│   │   └── config.ts            # Config loader + typed accessors
-│   └── middleware/
-│       └── debates.ts           # In-memory Map store + findDebate middleware
-├── server/
-│   ├── index.ts                 # Entry point (replaces server.js)
-│   ├── app.ts                   # Express app factory (replaces src/app.js)
-│   ├── routes/
-│   │   ├── index.ts             # Router assembly
-│   │   ├── debates.ts           # Debate CRUD (uses shared middleware + types)
-│   │   ├── models.ts            # Model fetching via OpenAI client
-│   │   ├── turns.ts             # Debate turn execution (SSE streaming)
-│   │   └── verdicts.ts          # Judge verdict (SSE streaming)
-│   └── utils/
-│       ├── openai-client.ts     # OpenAI client factory + retry wrapper
-│       └── prompts.ts           # System prompt definitions (from config)
-├── mock/
-│   ├── index.ts                 # Entry point (replaces mock-server.js)
-│   ├── app.ts                   # Shares server/app.ts pattern
-│   ├── routes/
-│   │   ├── index.ts             # Router assembly
-│   │   ├── debates.ts           # Mock debate CRUD (same interface, mock data)
-│   │   ├── models.ts            # Mock model list (from config)
-│   │   ├── turns.ts             # Mock turn streaming (hardcoded content)
-│   │   └── verdicts.ts          # Mock verdict streaming
-│   └── data/
-│       └── mock-data.ts         # Mock models + debate content (from config)
-├── client/
-│   ├── index.ts                 # Compiled output → public/js/bundle.js
-│   ├── config.ts                # Client-side config (loads config.json at runtime)
-│   ├── state/
-│   │   └── app-state.ts         # Typed state class (replaces global appState)
-│   ├── dom/
-│   │   ├── helpers.ts           # Typed DOM utilities ($, showPhase, showToast, scroll)
-│   │   └── tts-ui.ts            # TTS button/status UI logic (extracted from inline script)
-│   ├── api/
-│   │   └── client.ts            # Typed API wrapper (replaces global appApi)
-│   ├── session/
-│   │   └── session-storage.ts   # Encrypted session persistence (restructured)
-│   ├── tts/
-│   │   ├── manager.ts           # RealtimeTTSManager class (restructured)
-│   │   └── worker.ts            # Web Worker (remains mostly as-is, typed)
-│   ├── phases/
-│   │   ├── setup.ts             # Setup phase (typed, event listeners via addEventListener)
-│   │   ├── debate.ts            # Debate phase (typed)
-│   │   ├── judge-select.ts      # Judge-select phase (typed)
-│   │   └── verdict.ts           # Verdict phase (typed)
-│   └── app.ts                   # Reset-to-setup + DOMContentLoaded init
-├── public/
-│   ├── index.html               # Same HTML, script tags updated to compiled output
-│   ├── css/styles.css           # Unchanged
-│   └── js/
-│       └── bundle.js            # Compiled frontend output
-├── package.json
-├── tsconfig.json                # Root TypeScript config
-├── tsconfig.server.json         # Server TS config (Node target)
-├── tsconfig.client.json         # Client TS config (ES2020 target, bundling)
-└── PLAN.md
-```
+**Status**: ✅ COMPLETE
 
-### Key Architectural Decisions
+### 2.1 Streaming helpers (`shared/utils/streaming.ts`)
+- [x] `createSSEStream` — writes SSE events to Node.js response
+- [x] `writeChunk`, `writeDone`, `writeError` — SSE line formatting
+- [x] `flushSSE` — force flush `_writable`
+- [x] `extractFinishReason` — parse OpenAI `finish_reason`
 
-1. **`shared/` directory**: Code used by both real and mock servers (types, SSE helpers, debate middleware, config). This eliminates duplication between `src/` and `mock/src/`.
+### 2.2 Debates middleware (`shared/middleware/debates.ts`)
+- [x] `createDebateStore` — `Map<string, Debate>` with UUID generation
+- [x] `debateStore` — singleton export
+- [x] `getDebatesMiddleware` — Express middleware, 404 on missing debate
+- [x] `deleteDebate` — cleanup
 
-2. **`config.json`**: Single source of truth. Both server and client read from it. The server reads at startup; the client fetches it at runtime via `/config.json`.
-
-3. **`server/` and `mock/` directories**: Replace `src/` and `mock/src/`. Both import from `shared/` for common types and utilities.
-
-4. **`client/` directory**: TypeScript source for the frontend. Compiled to `public/js/bundle.js` (single bundle via esbuild or tsup). Replaces all current `public/js/*.js` files and the inline `<script>` block.
-
-5. **No more global variables**: Frontend uses a module-based architecture with explicit imports. State is encapsulated in classes.
+### 2.3 System prompts (`shared/utils/prompts.ts`)
+- [x] `SYSTEM_PROMPT_TRUE`, `SYSTEM_PROMPT_FALSE`, `SYSTEM_PROMPT_JUDGE`
+- [x] Mirrors `DEFAULT_PROMPTS` from inline HTML script
+- [x] Prose format enforcement, repetition penalty, brevity emphasis
 
 ---
 
-## 3. Configuration File (`config.json`)
+## Phase 3: Real Server (`server/`)
 
-```jsonc
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "app": {
-    "name": "JubilAI",
-    "realPort": 3000,
-    "mockPort": 3001,
-    "host": "0.0.0.0"
-  },
-  "debate": {
-    "maxTurns": 3,
-    "defaultApiKey": "ollama",
-    "autoAdvanceDelayMs": 1500,
-    "autoJudgeDelayMs": 1000,
-    "retryDelayMs": 5000,
-    "winnerPattern": "Winner:\\s*(The\\s+(Affirmative|Negative))"
-  },
-  "llm": {
-    "debaterDefaults": {
-      "temperature": 0.7,
-      "topP": null,
-      "topK": null,
-      "maxTokens": null
-    },
-    "judgeDefaults": {
-      "temperature": 0.5,
-      "topP": null,
-      "topK": null,
-      "maxTokens": null
-    }
-  },
-  "prompts": {
-    "affirmative": "You are a debater arguing that the following statement is TRUE...\n\nFORMAT: Write your response as a formal debate speech — continuous prose in paragraph form...\n\nIMPORTANT: Be concise and succinct...\n\nCRITICAL: Do not repeat the same point or argument...",
-    "negative": "You are a debater arguing that the following statement is FALSE...\n\nFORMAT: Write your response as a formal debate speech — continuous prose in paragraph form...\n\nIMPORTANT: Be concise and succinct...\n\nCRITICAL: Do not repeat the same point or argument...",
-    "judge": "You are an impartial judge evaluating a debate between two sides...\n\nFORMAT EVALUATION: Proper debate speeches are delivered as continuous prose...\n\nPoints made succinctly and with fewer words will be favored..."
-  },
-  "tts": {
-    "modelId": "onnx-community/Kokoro-82M-v1.0-ONNX",
-    "dtype": "q4",
-    "device": "wasm",
-    "workerTimeoutMs": 120000,
-    "sentenceBufferCap": 5000,
-    "statusPollIntervalMs": 500,
-    "voicePool": [
-      "af_alloy", "af_aoede", "af_bella", "af_heart", "af_jessica",
-      "af_kore", "af_nicole", "af_nova", "af_river", "af_sarah", "af_sky",
-      "am_adam", "am_echo", "am_eric", "am_fenrir", "am_liam",
-      "am_michael", "am_onyx", "am_puck", "am_santa",
-      "bf_alice", "bf_emma", "bf_isabella", "bf_lily",
-      "bm_daniel", "bm_fable", "bm_george", "bm_lewis"
-    ]
-  },
-  "session": {
-    "dbName": "jubilai_storage",
-    "dbVersion": 1,
-    "dbStore": "keys",
-    "keyRecordId": "aes_key",
-    "localStorageKey": "jubilai_session",
-    "localStorageKeyPlain": "jubilai_session_plain"
-  },
-  "ui": {
-    "toastAutoDismissMs": 3000,
-    "phases": ["phase-setup", "phase-debate", "phase-judge-select", "phase-verdict"]
-  },
-  "mock": {
-    "streamChunkSize": 3,
-    "streamDelayMs": 15,
-    "modelFetchDelayMs": 200,
-    "turnGenerationDelayMs": 300,
-    "verdictGenerationDelayMs": 400,
-    "models": [
-      "llama3.1:8b", "mistral:7b", "gemma:7b",
-      "qwen2.5:7b", "phi3:3.8b", "deepseek-coder-v2:16b"
-    ]
-  }
-}
-```
+**Status**: ✅ COMPLETE (with bugs)
 
-> **Note**: The full prompt text for `prompts.affirmative`, `prompts.negative`, and `prompts.judge` will contain the complete multi-line prompt strings currently in `src/utils/prompts.js` and `public/index.html`. The JSON value will use `\n` for line breaks.
+### 3.1 Server entry point (`server/index.ts`)
+- [x] Express app creation, config loading, CORS, JSON parsing
+- [x] Routes mounted at `/api/*`
+- [x] 404 handler, error handler, listens on `config.server.port` (3000)
+- [x] Graceful shutdown (SIGINT/SIGTERM)
+- [ ] **BUG**: Uses `require('./routes').default` — CommonJS `require` in a TypeScript file. Should use `import`.
+
+### 3.2 App factory (`server/app.ts`)
+- [x] `createApp(config)` — returns Express app with routes + middleware
+- [ ] **BUG**: Uses `require('./routes').default` — same CommonJS issue.
+
+### 3.3 Routes (`server/routes/`)
+- [x] `index.ts` — barrel export
+- [x] `debates.ts` — `POST /api/debates` (creates debate, validates), `DELETE /api/debates/:id`
+- [x] `models.ts` — `GET /api/models?url=...` with retry wrapper
+- [x] `turns.ts` — `POST /api/debates/:id/turns` (auto-advance, auto-judge, SSE streaming)
+- [x] `verdicts.ts` — `POST /api/debates/:id/verdicts` (judge SSE streaming), `POST /api/debates/:id/judge`
+
+### 3.4 Utilities (`server/utils/`)
+- [x] `openai-client.ts` — `createClient(apiUrl, apiKey)`, `withRetry(fn)` (1 retry, 5s delay)
+- [x] `prompts.ts` — re-exports from `shared/utils/prompts.ts`
 
 ---
 
-## 4. Migration Plan — Phase by Phase
+## Phase 4: Mock Server (`mock/`)
 
-### Phase 1: Foundation (Config + Shared Types)
+**Status**: ✅ COMPLETE (with bugs)
 
-**Deliverables**:
-1. Create `config.json` with all hardcoded values extracted.
-2. Create `shared/types/config.ts` — TypeScript interface matching `config.json` structure.
-3. Create `shared/utils/config.ts` — Config loader that reads `config.json`, validates against the interface, and exports a typed `Config` singleton.
-4. Create `shared/types/debate.ts` — Types: `Debate`, `Message`, `DebatePhase`, `Speaker`, `LLMParams`, `JudgeLLMParams`, `DebateCreateRequest`, `DebateResponse`.
-5. Create `shared/types/api.ts` — Types for all API request/response shapes.
-6. Create `shared/types/sse.ts` — Types: `SSEChunkEvent`, `SSDoneEvent`, `SSEErrorEvent`, `SSEEvent` (union).
-7. Create `tsconfig.json`, `tsconfig.server.json`, `tsconfig.client.json`.
-8. Update `package.json` with TypeScript tooling (`typescript`, `esbuild` or `tsup`, dev scripts).
+### 4.1 Mock server entry (`mock/index.ts`)
+- [x] Express app on port 3001, CORS, JSON parsing
+- [ ] **BUG**: Uses `require('./routes').default` — CommonJS `require` in a TypeScript file.
 
-**Files removed**: None yet (old JS files remain until Phase 3-4).
+### 4.2 Mock app factory (`mock/app.ts`)
+- [x] `createMockApp()` — returns Express app with mock routes
+- [ ] **BUG**: Uses `require('./routes').default` — same CommonJS issue.
 
-### Phase 2: Shared Utilities
+### 4.3 Mock routes (`mock/routes/`)
+- [x] `index.ts` — barrel export
+- [x] `debates.ts` — `POST /api/debates`, `DELETE /api/debates/:id`
+- [x] `models.ts` — `GET /api/models` returns `MOCK_MODELS`
+- [x] `turns.ts` — `POST /api/debates/:id/turns` streams `MOCK_DEBATE_CONTENT`
+- [x] `verdicts.ts` — `POST /api/debates/:id/verdicts` streams mock verdict, `POST /api/debates/:id/judge`
 
-**Deliverables**:
-1. Create `shared/utils/streaming.ts` — Unified SSE helpers (`setupSSE`, `sendChunk`, `sendDone`, `sendError`) typed with `Express.Response` and SSE event types. Replaces both `src/utils/streaming.js` and `mock/src/utils/streaming.js`.
-2. Create `shared/middleware/debates.ts` — Typed in-memory `Map<string, Debate>` store + `findDebate` middleware. Replaces both `src/middleware/debates.js` and `mock/src/middleware/debates.js`.
-3. Create `shared/utils/prompts.ts` — Reads prompts from `Config.prompts`. Exports `getAffirmativePrompt()`, `getNegativePrompt()`, `getJudgePrompt()` functions that return config values (or fallback defaults embedded as constants).
-
-### Phase 3: Real Server
-
-**Deliverables**:
-1. Create `server/index.ts` — Entry point. Reads config, creates app, listens on `config.app.realPort`. Replaces `server.js`.
-2. Create `server/app.ts` — Express app factory with CORS, JSON parsing, COOP/COEP headers, static file serving, and `/api` route mounting. Replaces `src/app.js`.
-3. Create `server/routes/index.ts` — Router assembly. Replaces `src/routes/index.js`.
-4. Create `server/routes/debates.ts` — Debate CRUD. Uses shared middleware + types. All defaults from config. Replaces `src/routes/debates.js`.
-5. Create `server/routes/models.ts` — Model fetching via typed OpenAI client. Replaces `src/routes/models.js`.
-6. Create `server/routes/turns.ts` — Debate turn execution with SSE streaming. All defaults from config. Replaces `src/routes/turns.js`.
-7. Create `server/routes/verdicts.ts` — Judge verdict with SSE streaming. All defaults from config. Replaces `src/routes/verdicts.js`.
-8. Create `server/utils/openai-client.ts` — Typed client factory + retry wrapper. Defaults from config. Replaces `src/utils/openai-client.js`.
-9. Create `server/utils/prompts.ts` — Re-exports from `shared/utils/prompts.ts`.
-
-**Files removed after completion**: All files under `src/` directory.
-
-### Phase 4: Mock Server
-
-**Deliverables**:
-1. Create `mock/index.ts` — Entry point. Reads config, creates app, listens on `config.app.mockPort`. Replaces `mock-server.js`.
-2. Create `mock/app.ts` — Same pattern as `server/app.ts` but serves from `../../public`. Imports shared middleware.
-3. Create `mock/routes/index.ts` — Router assembly. Replaces `mock/src/routes/index.js`.
-4. Create `mock/routes/debates.ts` — Mock debate CRUD. Same interface as real, uses shared middleware. Replaces `mock/src/routes/debates.js`.
-5. Create `mock/routes/models.ts` — Returns mock models from config. Replaces `mock/src/routes/models.js`.
-6. Create `mock/routes/turns.ts` — Mock turn streaming using shared SSE helpers. Replaces `mock/src/routes/turns.js`.
-7. Create `mock/routes/verdicts.ts` — Mock verdict streaming using shared SSE helpers. Replaces `mock/src/routes/verdicts.js`.
-8. Create `mock/data/mock-data.ts` — Mock debate content (hardcoded arguments + verdict). Mock model list from config. Replaces `mock/src/utils/mock-data.js`.
-
-**Files removed after completion**: All files under `mock/src/` directory.
-
-### Phase 5: Frontend (Client)
-
-**Deliverables**:
-
-1. **`client/config.ts`** — Fetches `config.json` at runtime. Exports typed config. Used by all client modules. Replaces hardcoded values in `state.js`, `tts-manager.js`, `session-storage.js`, `dom-helpers.js`, and the inline `DEFAULT_PROMPTS` in `index.html`.
-
-2. **`client/state/app-state.ts`** — Class-based state management. Replaces global `appState` object. Properties are typed. Includes `reset()` method.
-
-3. **`client/dom/helpers.ts`** — Typed DOM utilities. `$()` returns `HTMLElement | null`. `showPhase()` uses config for phase list. `showToast()` uses config for dismiss delay. Replaces `dom-helpers.js`.
-
-4. **`client/dom/tts-ui.ts`** — Extracts TTS UI logic from inline `<script>` in `index.html`. Functions: `toggleTTSEnable()`, `pauseDebateAudioAndUI()`, `resumeDebateAudioAndUI()`, `updateTTSEnableButton()`, `startTTSStatusPoll()`, `stopTTSStatusPoll()`. Uses config for poll interval.
-
-5. **`client/api/client.ts`** — Typed API client class. Replaces global `appApi` object. Methods return typed responses.
-
-6. **`client/session/session-storage.ts`** — Restructured session persistence class. Typed. Config-driven DB names and keys. Replaces `session-storage.js`.
-
-7. **`client/tts/manager.ts`** — Typed `RealtimeTTSManager` class. Voice pool, model ID, dtype, device, timeouts all from config. Replaces `tts-manager.js`. Exports singleton + helper functions.
-
-8. **`client/tts/worker.ts`** — Typed Web Worker. Model ID, dtype, device from config. **Special handling**: Workers use dynamic `import()` from CDN, so this file is compiled differently (kept as a module worker, config values inlined at build time). Replaces `tts-worker.js`.
-
-9. **`client/phases/setup.ts`** — Typed setup phase module. Uses `addEventListener` instead of HTML `onclick`. `fetchModelsFor` typed with `Panel` enum (`'A' | 'B' | 'Judge'`). `DEFAULT_PROMPTS` comes from config. `gatherAdvancedSettings()` reads DOM into typed settings object. Replaces `setup.js` and inline `DEFAULT_PROMPTS`/`toggleAdvancedSettings`/`resetPrompt`/`gatherAdvancedSettings` from `index.html`.
-
-10. **`client/phases/debate.ts`** — Typed debate phase module. Auto-advance delay from config. Replaces `debate.js`.
-
-11. **`client/phases/judge-select.ts`** — Typed judge-select phase module. Replaces `judge-select.js`.
-
-12. **`client/phases/verdict.ts`** — Typed verdict phase module. Replaces `verdict.js`.
-
-13. **`client/app.ts`** — `resetToSetup()` method on `AppState` class. DOMContentLoaded init. Replaces `app.js`.
-
-14. **`client/index.ts`** — Root entry point. Imports all modules, wires up event listeners, triggers `DOMContentLoaded` init. Compiled to `public/js/bundle.js`.
-
-**HTML changes**:
-- `public/index.html`: Remove all `onclick` attributes. Remove inline `<script>` block entirely. Replace all `<script src="js/...">` tags with a single `<script src="js/bundle.js"></script>`.
-
-**Files removed after completion**: All files under `public/js/` directory (except compiled `bundle.js` and `tts-worker.js` output).
-
-### Phase 6: Build System + Polish
-
-**Deliverables**:
-1. **`tsconfig.json`** — Base config with strict TypeScript settings.
-2. **`tsconfig.server.json`** — Extends base. Target: `ES2020`, module: `NodeNext`, outDir: `dist/server`.
-3. **`tsconfig.client.json`** — Extends base. Target: `ES2020`, module: `ES2020`, outDir: `public/js`.
-4. **Build scripts in `package.json`**:
-   - `build:server` — `tsc -p tsconfig.server.json`
-   - `build:client` — `esbuild client/index.ts --bundle --outfile=public/js/bundle.js --loader:.worker.js=copy`
-   - `build` — runs both
-   - `start` — `node dist/server/index.js` (replaces `node server.js`)
-   - `dev:server` — `tsx watch server/index.ts`
-   - `mock` — `node dist/mock/index.js` (replaces `node mock-server.js`)
-   - `dev:mock` — `tsx watch mock/index.ts`
-   - `typecheck` — `tsc --noEmit -p tsconfig.server.json && tsc --noEmit -p tsconfig.client.json`
-5. **`public/js/tts-worker.js`** — Worker file compiled separately (esbuild with `--format=iife` or kept as-is with dynamic imports). Config values inlined at build time via esbuild `--define`.
+### 4.4 Mock data (`mock/data/mock-data.ts`)
+- [x] `MOCK_MODELS` — 6 fake models (llama3, mistral, etc.)
+- [x] `MOCK_DEBATE_CONTENT` — 3 turns per side + verdict (always Negative wins)
 
 ---
 
-## 5. What Remains Unchanged
+## Phase 5: Frontend (Client)
 
-- **`public/css/styles.css`** — CSS is not JavaScript/TypeScript. No changes needed.
-- **`public/index.html`** — Structure and classes remain. Only script tags and `onclick` attributes are modified.
-- **Kokoro-js CDN imports** — TTS worker still imports from CDN. This is a runtime dependency, not a build concern.
-- **`marked` library** — Still loaded from CDN in HTML.
+**Status**: ✅ COMPLETE with **6 critical bugs** that block compilation
+
+### 5.1 Config (`client/config.ts`)
+- [x] Reads `config.json`, exposes `loadConfig()` + `getConfig()`
+- [x] HTTPS detection, defaults for missing values
+- [x] `PromptsConfig` imported from shared types
+
+### 5.2 State (`client/state/app-state.ts`)
+- [x] `AppState` interface — debate data, models, TTS state, streaming flags
+- [x] `appState` singleton export
+- [x] `sessionRestored` flag, `advancedSettings`, `_activeSpeaker`
+
+### 5.3 DOM helpers (`client/dom/helpers.ts`)
+- [x] `$()` — null-safe querySelector
+- [x] `showPhase()` — phase switching with active class
+- [x] `showToast()` — 3s auto-dismiss toast
+- [x] `scrollToBottom()`, `scrollVerdictToBottom()`
+
+### 5.4 TTS UI (`client/dom/tts-ui.ts`)
+- [x] `updateTTSEnableButton()` — syncs TTS buttons/status with state
+- [x] `startTTSStatusPoll()` / `stopTTSStatusPoll()` — 500ms polling
+- [ ] **BUG**: `resetPrompt` is imported by `app.ts` from this module but never exported from it. `resetPrompt` is defined in `setup.ts` (locally, not exported).
+
+### 5.5 API client (`client/api/client.ts`)
+- [x] `apiClient` singleton — `createDebate`, `nextTurn`, `verdict`, `setJudge`, `deleteDebate`, `fetchModels`
+- [x] JSON response parsing helper
+
+### 5.6 Session storage (`client/session/session-storage.ts`)
+- [x] AES-256-GCM encryption (HTTPS/localhost), plaintext fallback (HTTP)
+- [x] IndexedDB key storage, localStorage ciphertext
+- [x] `restore()`, `save()`, `remove()`, `applyModelSelections()`
+- [x] `_applyToDom()` — restores config to DOM elements, skips defaults
+
+### 5.7 TTS manager (`client/tts/manager.ts`)
+- [x] `RealtimeTTSManager` — Web Worker, sentence splitting, serial queue, pipelined playback
+- [x] `useStreaming = false` — `kokoro.stream()` hangs; `generate()` used instead
+- [x] Voice pool, `pickRandomVoices()`, `assignVoices()`
+- [x] `feedTextChunk()`, `finishStreaming()`, `stopAudio()`, `pauseAudio()`, `resumeAudio()`, `destroy()`
+- [x] Helper exports: `startDebateAudio`, `stopDebateAudio`, `pauseDebateAudio`, `resumeDebateAudio`, `feedAudioText`, `finishDebateAudio`
+
+### 5.8 TTS worker (`client/tts/worker.ts`)
+- [x] Kokoro model loading from CDN (`kokoro-js@1.2.1`)
+- [x] ONNX Runtime Web multi-threading config
+- [x] `init`, `generate`, `stream-generate`, `stop` message handlers
+- [x] ArrayBuffer transfer (zero-copy)
+
+### 5.9 Setup phase (`client/phases/setup.ts`)
+- [x] `fetchModelsFor(panel)` — panel config map, model fetching, readiness checks
+- [x] `checkSetupReady()` — enables start button when all fields filled
+- [x] `gatherAdvancedSettings()` — reads advanced settings from DOM
+- [x] `initSetupPhase()` — event binding, session restore, debate start
+- [ ] **BUG 1**: `gatherAdvancedSettings` has a syntax error on line 182 — `judgeTopK: ... : undefined;` uses a semicolon instead of comma inside an object literal. Breaks TypeScript compilation.
+- [ ] **BUG 2**: Uses `startDebateAudio(state)`, `stopDebateAudio(state)`, `updateTTSEnableButton(state)` without importing them.
+- [ ] **BUG 3**: Uses `resetPrompt('A', ...)` etc. on lines 227-231 but `resetPrompt` is never defined or imported in this file. It exists only in the inline `<script>` of `index.html`.
+- [ ] **BUG 4**: Calls `initDebatePhase(state)` on line 413 but doesn't import it from `./debate`.
+- [ ] **BUG 5**: Uses `marked.parse()` on lines 548/556 without importing `marked`. No `global.d.ts` declares it.
+- [ ] **BUG 6**: Circular dependency — `setup.ts` calls `initDebatePhase` from `debate.ts`, and `debate.ts` imports `renderDebateProgress`, `updateDebateStatus`, `showRetryTurn`, `hideRetryTurn` from `./setup`.
+
+### 5.10 Debate phase (`client/phases/debate.ts`)
+- [x] `executeNextTurn()` — SSE streaming, TTS integration, auto-advance
+- [x] `initDebatePhase()` — event binding (abort, retry)
+- [x] Imports `renderDebateProgress`, `updateDebateStatus`, `showRetryTurn`, `hideRetryTurn` from `./setup` (creates circular dependency — see setup bugs)
+- [ ] **BUG**: Uses `marked.parse()` without importing `marked`.
+
+### 5.11 Judge-select phase (`client/phases/judge-select.ts`)
+- [x] `transitionToJudgeSelect()` — shows judge-select UI, pre-fills endpoint
+- [x] `fetchModelsForJudgeSelect()` — reads from `*2` DOM elements (not setup-phase elements)
+- [x] `initJudgeSelectPhase()` — event binding, calls `runVerdict` after judge setup
+
+### 5.12 Verdict phase (`client/phases/verdict.ts`)
+- [x] `runVerdict()` — judge SSE streaming, winner parsing, transcript rendering
+- [x] `renderTranscript()` — debate messages display
+- [x] `exportMarkdown()` — markdown file download
+- [x] `initVerdictPhase()` — event binding (transcript toggle, export, retry)
+- [ ] **BUG 1**: References `ttsManager.initialize()` on line 52 but `ttsManager` is not imported. Imports helper functions from `../tts/manager` but not the class itself.
+- [ ] **BUG 2**: Uses `marked.parse()` in 6 places without importing `marked`.
+
+### 5.13 App (`client/app.ts`)
+- [x] `resetToSetup()` — clears all state/DOM, resets session flag, destroys TTS
+- [x] `initApp()` — binds new debate buttons
+- [ ] **BUG**: `import { resetPrompt } from '../dom/tts-ui'` — `resetPrompt` is not exported from `tts-ui.ts`. Causes build failure.
+
+### 5.14 Entry point (`client/index.ts`)
+- [x] Imports all modules, calls `loadConfig()`, initializes all phases
+- [x] Clean, modular initialization
 
 ---
 
-## 6. Expected Outcomes
+## Phase 6: Build System + Polish
 
-| Metric | Before | After |
-|---|---|---|
-| Language | JavaScript | TypeScript (strict mode) |
-| Config sources | 15+ hardcoded locations | 1 (`config.json`) |
-| Duplicate files | 6 (app×2, middleware×2, streaming×2, routes index×2) | 0 (shared/) |
-| Global variables | 8+ (`appState`, `appApi`, `appSession`, `ttsManager`, `$`, etc.) | 0 (module imports) |
-| Inline HTML script | ~120 lines in `index.html` | 0 (moved to `client/`) |
-| `onclick` attributes | 10+ | 0 (addEventListener) |
-| Frontend source files | 10 JS files + inline script | 13 TS files → 1 bundle |
-| Type safety | None | Full (strict TS compiler) |
+**Status**: ⏳ BLOCKED — must fix Phase 5 bugs first
+
+### 6.1 Build scripts
+- [ ] `npm run build:client` — esbuild `client/index.ts` → `public/js/bundle.js` (bundle mode)
+- [ ] `npm run build:tts` — esbuild `client/tts/worker.ts` → `public/js/tts-worker.js` (IIFE, `--format=iife`, `--define:TTS_MODEL_ID=...`)
+- [ ] `npm run build:server` — `tsc -p tsconfig.server.json` → `dist/server/`
+- [ ] `npm run build` — runs server + client + tts builds in sequence
+
+### 6.2 Cleanup old files
+- [ ] Remove old `src/` directory (JS real server)
+- [ ] Remove old `mock/src/` directory (JS mock server)
+- [ ] Remove old `public/js/` files: `api.js`, `app.js`, `dom-helpers.js`, `state.js`, `session-storage.js`, `tts-manager.js`, `tts-worker.js`, `phases/`
+- [ ] Remove inline `<script>` block from `public/index.html` (contains old JS globals: `toggleTTSEnable`, `pauseDebateAudioAndUI`, `resumeDebateAudioAndUI`, `updateTTSEnableButton`, `toggleAdvancedSettings`, `resetPrompt`, `gatherAdvancedSettings`, `DEFAULT_PROMPTS`, `DOMContentLoaded` init)
+- [ ] Update `public/index.html`: remove old script tags, keep only `<script src="js/bundle.js">` and `<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js">`
+
+### 6.3 Global type declarations
+- [ ] Create `client/global.d.ts` — declare `marked` global (loaded via CDN), declare inline globals (`appState`, `$`, `showToast`, `ttsManager`, etc.) if any remain on window
+
+### 6.4 Start scripts
+- [ ] `npm start` — runs `dist/server/index.js` (real server)
+- [ ] `npm run mock` — runs `dist/mock/index.js` (mock server)
+- [ ] `npm run dev:server` — `tsx watch server/index.ts`
+- [ ] `npm run dev:client` — `esbuild client/index.ts --bundle --outfile=public/js/bundle.js --watch`
 
 ---
 
-## 7. Implementation Order
+## Bugs to Fix Before Phase 6
 
-1. **Phase 1**: Config + shared types (foundation)
-2. **Phase 2**: Shared utilities (SSE, middleware, prompts)
-3. **Phase 3**: Real server rewrite
-4. **Phase 4**: Mock server rewrite
-5. **Phase 5**: Frontend rewrite
-6. **Phase 6**: Build system + integration testing
+### Critical (blocks compilation)
 
-Each phase must compile and pass basic verification before proceeding to the next.
+1. **`setup.ts:182`** — Semicolon instead of comma in `gatherAdvancedSettings` object literal: `judgeTopK: ... : undefined;` → should be `,`
+2. **`setup.ts`** — Missing imports: `startDebateAudio`, `stopDebateAudio`, `updateTTSEnableButton` from `../tts/manager` and `../dom/tts-ui`
+3. **`setup.ts:227-231`** — `resetPrompt` referenced but not defined/imported in this file. Must either define it locally or import from wherever it belongs.
+4. **`setup.ts:413`** — Calls `initDebatePhase(state)` without importing from `./debate`
+5. **`setup.ts`, `debate.ts`, `verdict.ts`** — Use `marked.parse()` without importing `marked` or declaring it globally
+6. **`app.ts:10`** — `import { resetPrompt } from '../dom/tts-ui'` — `resetPrompt` not exported from `tts-ui.ts`
+7. **`verdict.ts:52`** — References `ttsManager` without importing it from `../tts/manager`
+8. **Circular dependency** — `setup.ts` → `debate.ts` → `setup.ts` (via `renderDebateProgress`, `updateDebateStatus`, `showRetryTurn`, `hideRetryTurn`)
+
+### Minor (cosmetic / consistency)
+
+9. **`server/app.ts`, `mock/app.ts`** — Use `require('./routes').default` instead of `import`
+10. **`shared/types/sse.ts`** — `SSDoneEvent` has double-S prefix typo (consistent throughout but wrong)
 
 ---
 
-## 8. Risks and Mitigations
+## Recommended Fix Order
 
-| Risk | Mitigation |
-|---|---|
-| TTS worker dynamic imports from CDN break with bundler | Keep worker as separate output; use esbuild `--format=iife` or copy loader |
-| kokoro-js types not available | Use `@ts-ignore` or declare module for CDN imports; or install `kokoro-js` as npm dependency for types |
-| Config JSON schema validation at runtime | Include runtime assertion in `shared/utils/config.ts` to validate shape |
-| Frontend bundle size | Use tree-shaking; TTS worker is separate; marked stays as CDN |
-| Breaking existing functionality | Each phase tested incrementally; old JS files kept until new TS replaces them |
-| Session storage encryption (Web Crypto) | TypeScript types for `CryptoKey`, `SubtleCrypto` are built-in |
+1. Fix `setup.ts:182` semicolon → comma
+2. Add missing imports to `setup.ts` (TTS helpers)
+3. Define `resetPrompt` in `setup.ts` (move from inline HTML) and export it
+4. Import `resetPrompt` from `./setup` in `app.ts` (fix wrong import path)
+5. Import `initDebatePhase` in `setup.ts` from `./debate`
+6. Break circular dependency: move `renderDebateProgress`, `updateDebateStatus`, `showRetryTurn`, `hideRetryTurn` to a shared module (e.g., `client/dom/debate-ui.ts`)
+7. Add `global.d.ts` for `marked` OR add `import { parse } from 'marked'` to each file that uses it (CDN-loaded, so use global declaration)
+8. Import `ttsManager` in `verdict.ts` from `../tts/manager`
+9. Fix `require()` → `import` in `server/app.ts` and `mock/app.ts`
+10. Fix `SSDoneEvent` → `SSDoneEvent` (rename consistently) or leave as-is (cosmetic)
+
+After all bugs are fixed, proceed to Phase 6.

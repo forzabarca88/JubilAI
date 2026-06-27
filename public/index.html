@@ -72,7 +72,7 @@
 
       <!-- Advanced Settings (Collapsible) -->
       <div class="briefing-card full-width advanced-settings-card">
-        <button class="btn btn-ghost advanced-toggle" id="btnAdvancedToggle" onclick="toggleAdvancedSettings()">
+        <button class="btn btn-ghost advanced-toggle" id="btnAdvancedToggle">
           ⚙️ Advanced Settings
         </button>
         <div id="advancedSettingsPanel" class="hidden">
@@ -82,17 +82,17 @@
               <div class="advanced-prompt-group">
                 <label class="advanced-label affirmative-prompt">Affirmative Prompt</label>
                 <textarea id="promptA" class="advanced-textarea" placeholder="Custom system prompt for the affirmative debater..."></textarea>
-                <button class="btn btn-sm btn-ghost" onclick="resetPrompt('A')">Reset to default</button>
+                <button class="btn btn-sm btn-ghost">Reset to default</button>
               </div>
               <div class="advanced-prompt-group">
                 <label class="advanced-label negative-prompt">Negative Prompt</label>
                 <textarea id="promptB" class="advanced-textarea" placeholder="Custom system prompt for the negative debater..."></textarea>
-                <button class="btn btn-sm btn-ghost" onclick="resetPrompt('B')">Reset to default</button>
+                <button class="btn btn-sm btn-ghost">Reset to default</button>
               </div>
               <div class="advanced-prompt-group judge-prompt">
                 <label class="advanced-label judge-prompt-label">Judge Prompt</label>
                 <textarea id="promptJudge" class="advanced-textarea" placeholder="Custom system prompt for the judge..."></textarea>
-                <button class="btn btn-sm btn-ghost" onclick="resetPrompt('Judge')">Reset to default</button>
+                <button class="btn btn-sm btn-ghost">Reset to default</button>
               </div>
             </div>
           </div>
@@ -190,9 +190,9 @@
 
         <div class="stage-controls">
           <div class="tts-controls">
-            <button class="tts-btn" id="ttsToggle" onclick="toggleTTSEnable()">🔊 Audio</button>
-            <button class="tts-btn" id="ttsStopBtn" onclick="pauseDebateAudioAndUI()" disabled>⏸ Pause</button>
-            <button class="tts-btn hidden" id="ttsResumeBtn" onclick="resumeDebateAudioAndUI()">▶ Resume</button>
+            <button class="tts-btn" id="ttsToggle">🔊 Audio</button>
+            <button class="tts-btn" id="ttsStopBtn" disabled>⏸ Pause</button>
+            <button class="tts-btn hidden" id="ttsResumeBtn">▶ Resume</button>
             <div class="tts-status" id="ttsStatus"></div>
           </div>
           <div class="action-buttons">
@@ -271,9 +271,9 @@
         </div>
 
         <div class="tts-controls verdict-tts-controls">
-          <button class="tts-btn" id="ttsToggleVerdict" onclick="toggleTTSEnable()">🔊 Audio</button>
-          <button class="tts-btn" id="ttsStopBtnVerdict" onclick="pauseDebateAudioAndUI()" disabled>⏸ Pause</button>
-          <button class="tts-btn hidden" id="ttsResumeBtnVerdict" onclick="resumeDebateAudioAndUI()">▶ Resume</button>
+          <button class="tts-btn" id="ttsToggleVerdict">🔊 Audio</button>
+          <button class="tts-btn" id="ttsStopBtnVerdict" disabled>⏸ Pause</button>
+          <button class="tts-btn hidden" id="ttsResumeBtnVerdict">▶ Resume</button>
           <div class="tts-status" id="ttsStatusVerdict"></div>
         </div>
       </div>
@@ -285,18 +285,7 @@
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<script src="js/state.js"></script>
-<script src="js/dom-helpers.js"></script>
-<script src="js/api.js"></script>
-<script src="js/session-storage.js"></script>
-<script src="js/tts-manager.js"></script>
-<script src="js/phases/setup.js"></script>
-<script src="js/phases/debate.js"></script>
-<script src="js/phases/judge-select.js"></script>
-<script src="js/phases/verdict.js"></script>
-<script src="js/app.js"></script>
-
-<script>
+<script src="js/bundle.js"></script>
 function toggleTTSEnable() {
   appState.ttsEnabled = !appState.ttsEnabled;
   appState.ttsPaused = false;
@@ -529,6 +518,5 @@ document.addEventListener('DOMContentLoaded', () => {
   $('btnNewDebate').onclick = resetToSetup;
   $('btnNewDebate2').onclick = resetToSetup;
 });
-</script>
 </body>
 </html>

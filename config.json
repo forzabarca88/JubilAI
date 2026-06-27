@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "app": {
+    "name": "JubilAI",
+    "realPort": 3000,
+    "mockPort": 3001,
+    "host": "0.0.0.0"
+  },
+  "debate": {
+    "maxTurns": 3,
+    "defaultApiKey": "ollama",
+    "autoAdvanceDelayMs": 1500,
+    "autoJudgeDelayMs": 1000,
+    "retryDelayMs": 5000,
+    "winnerPattern": "Winner:\\s*(The\\s+(Affirmative|Negative))"
+  },
+  "llm": {
+    "debaterDefaults": {
+      "temperature": 0.7,
+      "topP": null,
+      "topK": null,
+      "maxTokens": null
+    },
+    "judgeDefaults": {
+      "temperature": 0.5,
+      "topP": null,
+      "topK": null,
+      "maxTokens": null
+    }
+  },
+  "prompts": {
+    "affirmative": "You are a debater arguing that the following statement is TRUE.\nProvide strong, logical arguments supporting this position. Address counterarguments raised\nby your opponent. Be persuasive, cite reasoning, and directly respond to points made against\nyour position. Stay focused on defending the statement. Do not concede or switch sides.\n\nFORMAT: Write your response as a formal debate speech — continuous prose in paragraph form.\nDo NOT use bullet points, numbered lists, dot points, or any list-style formatting. Real\ndebaters deliver spoken speeches, not written outlines. Your arguments should flow naturally\nas connected paragraphs with smooth transitions between points.\n\nIMPORTANT: Be concise and succinct. Use fewer words — get straight to the point. Make each\nargument brief but impactful. Brevity will be a factor in judging the debate outcome.\n\nCRITICAL: Do not repeat the same point or argument. Each turn must introduce new reasoning or\naddress new aspects of the opponent's arguments. Repetition of previously made points will be\njudged negatively and will hurt your score.",
+    "negative": "You are a debater arguing that the following statement is FALSE.\nProvide strong, logical arguments against this position. Address counterarguments raised\nby your opponent. Be persuasive, cite reasoning, and directly respond to points made in\nfavor of your opponent's position. Stay focused on refuting the statement. Do not concede or switch sides.\n\nFORMAT: Write your response as a formal debate speech — continuous prose in paragraph form.\nDo NOT use bullet points, numbered lists, dot points, or any list-style formatting. Real\ndebaters deliver spoken speeches, not written outlines. Your arguments should flow naturally\nas connected paragraphs with smooth transitions between points.\n\nIMPORTANT: Be concise and succinct. Use fewer words — get straight to the point. Make each\nargument brief but impactful. Brevity will be a factor in judging the debate outcome.\n\nCRITICAL: Do not repeat the same point or argument. Each turn must introduce new reasoning or\naddress new aspects of the opponent's arguments. Repetition of previously made points will be\njudged negatively and will hurt your score.",
+    "judge": "You are an impartial judge evaluating a debate between two sides.\nOne side argued that the statement is TRUE, the other argued it is FALSE.\nEvaluate both arguments based on: logical reasoning, evidence quality, rhetorical skill,\nhow well each side addressed the opponent's points, conciseness, originality of arguments,\nand debate format.\n\nFORMAT EVALUATION: Proper debate speeches are delivered as continuous prose (spoken\nparagraphs), not as bullet points, numbered lists, or structured outlines. Debaters who\npresent their arguments in proper speech format — with flowing prose and natural transitions\n— should be scored higher. Debaters who use bullet points, dot points, or list-style\nformatting are not following debate conventions and should be penalized.\n\nPoints made succinctly and with fewer words will be favored — brevity is a factor in the\ndebate outcome. Repetition of the same point by either side should be judged negatively\nand lower that side's score. Choose the winner and explain why."
+  },
+  "tts": {
+    "modelId": "onnx-community/Kokoro-82M-v1.0-ONNX",
+    "dtype": "q4",
+    "device": "wasm",
+    "workerTimeoutMs": 120000,
+    "sentenceBufferCap": 5000,
+    "statusPollIntervalMs": 500,
+    "voicePool": [
+      "af_alloy", "af_aoede", "af_bella", "af_heart", "af_jessica",
+      "af_kore", "af_nicole", "af_nova", "af_river", "af_sarah", "af_sky",
+      "am_adam", "am_echo", "am_eric", "am_fenrir", "am_liam",
+      "am_michael", "am_onyx", "am_puck", "am_santa",
+      "bf_alice", "bf_emma", "bf_isabella", "bf_lily",
+      "bm_daniel", "bm_fable", "bm_george", "bm_lewis"
+    ]
+  },
+  "session": {
+    "dbName": "jubilai_storage",
+    "dbVersion": 1,
+    "dbStore": "keys",
+    "keyRecordId": "aes_key",
+    "localStorageKey": "jubilai_session",
+    "localStorageKeyPlain": "jubilai_session_plain"
+  },
+  "ui": {
+    "toastAutoDismissMs": 3000,
+    "phases": ["phase-setup", "phase-debate", "phase-judge-select", "phase-verdict"]
+  },
+  "mock": {
+    "streamChunkSize": 3,
+    "streamDelayMs": 15,
+    "modelFetchDelayMs": 200,
+    "turnGenerationDelayMs": 300,
+    "verdictGenerationDelayMs": 400,
+    "models": [
+      "llama3.1:8b", "mistral:7b", "gemma:7b",
+      "qwen2.5:7b", "phi3:3.8b", "deepseek-coder-v2:16b"
+    ]
+  }
+}

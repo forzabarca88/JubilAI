@@ -8,12 +8,28 @@
     "dev": "node server.js",
     "mock": "node mock-server.js",
     "validate": "node mock-server.js",
-    "build": "docker build -t jubilai ."
+    "build": "docker build -t jubilai .",
+    "build:server": "tsc -p tsconfig.server.json",
+    "build:client": "esbuild client/index.ts --bundle --outfile=public/js/bundle.js --loader:.worker.js=copy --packages=offline --minify",
+    "build:ts": "npm run build:server && npm run build:client",
+    "start:ts": "node dist/server/index.js",
+    "dev:server": "tsx watch server/index.ts",
+    "dev:mock": "tsx watch mock/index.ts",
+    "mock:ts": "node dist/mock/index.js",
+    "typecheck": "tsc --noEmit -p tsconfig.server.json && tsc --noEmit -p tsconfig.client.json"
   },
   "dependencies": {
     "express": "^4.21.0",
     "openai": "^4.70.0",
     "cors": "^2.8.5",
     "uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "esbuild": "^0.24.0",
+    "tsx": "^4.19.0",
+    "@types/express": "^5.0.0",
+    "@types/cors": "^2.8.17",
+    "@types/uuid": "^10.0.0"
   }
 }
