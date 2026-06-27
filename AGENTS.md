@@ -1,8 +1,8 @@
 # Core Guidelines
 
 - When modifying existing files, you must avoid rewriting the whole file unless you have failed with edits atleast 3 times.
-- After completing every change, review whether AGENTS.md requires any modification as a result. If the change affects architecture, API contracts, state machines, file structure, or any other documented aspect, update AGENTS.md accordingly.
-
+- After completing every change, review whether AGENTS.md requires any modification as a result. This file MUST be minimal - focus on critical information, avoid any specifics or snippets of code.
+ 
 # Codebase Architecture
 
 ## Dual Server Setup
