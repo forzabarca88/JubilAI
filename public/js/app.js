@@ -2,6 +2,9 @@
  * Reset all state and UI back to the setup phase.
  */
 function resetToSetup() {
+  // Clear session restored flag so next page load will re-restore
+  appState.sessionRestored = false;
+
   // Stop any playing TTS audio and clean up model
   stopDebateAudio();
   ttsManager.destroy();

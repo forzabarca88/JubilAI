@@ -19,4 +19,7 @@ const appState = {
   ttsEnabled: false,
   ttsSpeakerVoices: {},
   ttsActiveSpeaker: null,
+
+  // Session persistence state
+  sessionRestored: false,
 };

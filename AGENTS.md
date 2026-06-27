@@ -13,15 +13,16 @@
 
 ## Frontend Module Loading Order
 Scripts in `public/index.html` are loaded in this strict order:
-1. `js/state.js` — Global `appState` object (models, debate data, turn counts, streaming flag, TTS state)
+1. `js/state.js` — Global `appState` object (models, debate data, turn counts, streaming flag, TTS state, `sessionRestored` flag)
 2. `js/dom-helpers.js` — `$()` helper with null guard, `showPhase()`, `showToast()`, scroll helpers
 3. `js/api.js` — Global `appApi` object wrapping all fetch calls to `/api/*` endpoints
-4. `js/tts-manager.js` — Real-time TTS using kokoro-js with WebGPU (sentence batching, serial generation queue, audio playback, random voice assignment)
-5. `js/phases/setup.js` — Model fetching via `fetchModelsFor(panel)` which reads from setup-phase DOM elements (`endpointA/B/Judge`, `apiKeyA/B/Judge`, `modelA/B`, `judgeModelSelect`), readiness checks (clicking disabled start button shows toast with missing requirements), debate creation, TTS initialization
-6. `js/phases/debate.js` — Turn execution, streaming display, progress tracking, auto-advance, TTS text feeding
-7. `js/phases/judge-select.js` — Shown only when judge was NOT pre-configured in setup. Has its own `fetchModelsForJudgeSelect()` function that reads from `*2` DOM elements (`endpointJudge2`, `apiKeyJudge2`, `judgeModelSelect2`). Do NOT call `fetchModelsFor('Judge')` from this phase — that function reads from setup-phase elements (`endpointJudge`, etc.) which are hidden and empty.
-8. `js/phases/verdict.js` — Verdict streaming, transcript rendering, markdown export, TTS for judge voice
-9. `js/app.js` — `resetToSetup()` function that resets all state and DOM
+4. `js/session-storage.js` — Global `appSession` object for transparent encrypted session persistence (IndexedDB key + localStorage ciphertext, AES-256-GCM encryption, auto-restore on load, auto-save on debate start)
+5. `js/tts-manager.js` — Real-time TTS using kokoro-js with WebGPU (sentence batching, serial generation queue, audio playback, random voice assignment)
+6. `js/phases/setup.js` — Model fetching via `fetchModelsFor(panel)` which reads from setup-phase DOM elements (`endpointA/B/Judge`, `apiKeyA/B/Judge`, `modelA/B`, `judgeModelSelect`), readiness checks (clicking disabled start button shows toast with missing requirements), debate creation, TTS initialization. Calls `appSession.restore()` on init for silent auto-fill, and `appSession.save()` after successful debate creation.
+7. `js/phases/debate.js` — Turn execution, streaming display, progress tracking, auto-advance, TTS text feeding
+8. `js/phases/judge-select.js` — Shown only when judge was NOT pre-configured in setup. Has its own `fetchModelsForJudgeSelect()` function that reads from `*2` DOM elements (`endpointJudge2`, `apiKeyJudge2`, `judgeModelSelect2`). Do NOT call `fetchModelsFor('Judge')` from this phase — that function reads from setup-phase elements (`endpointJudge`, etc.) which are hidden and empty.
+9. `js/phases/verdict.js` — Verdict streaming, transcript rendering, markdown export, TTS for judge voice
+10. `js/app.js` — `resetToSetup()` function that resets all state and DOM. Clears `sessionRestored` flag so next page load re-restores from saved session.
 
 ## SSE Streaming Protocol
 All streaming endpoints (debate turns, verdicts) use Server-Sent Events with this JSON format:
@@ -47,6 +48,18 @@ If `autoJudge` is true (judge configured in setup), the frontend auto-triggers `
 
 ## In-Memory Storage
 All debates are stored in a `Map` (keyed by UUID). Data is lost on server restart. No database.
+
+## Session Persistence (Implemented)
+- `js/session-storage.js`: Global `appSession` object for transparent encrypted session persistence
+- **Two-layer storage**: IndexedDB stores the AES-256-GCM encryption key; localStorage stores the encrypted config ciphertext. Split across two storage mechanisms with different access surfaces.
+- **Encryption**: AES-256-GCM authenticated encryption. 256-bit random key via `crypto.getRandomValues(32)`. 12-byte random IV per encryption.
+- **IndexedDB schema**: Database `jubilai_storage` v1, store `keys` (keyPath: `id`), record `{ id: 'aes_key', keyData: <ArrayBuffer> }`
+- **localStorage format**: Base64-encoded concatenation of `IV (12 bytes) || ciphertext` under key `jubilai_session`
+- **Data saved**: `statement`, `endpointA`, `apiKeyA`, `modelA`, `endpointB`, `apiKeyB`, `modelB`, `endpointJudge`, `apiKeyJudge`, `modelJudge`
+- **Auto-restore**: `initSetupPhase()` calls `appSession.restore()` which silently loads key from IndexedDB, decrypts localStorage, and auto-fills form fields. Fetches models for panels with endpoints, then re-evaluates button readiness.
+- **Auto-save**: After successful debate creation in `btnStartDebate.onclick`, `appSession.save()` encrypts current config and stores in localStorage.
+- **`resetToSetup()`**: Clears `appState.sessionRestored` flag so next page load re-restores from saved session.
+- **Graceful fallback**: All failures are silent (console.warn only, no toasts). App degrades to empty form if IndexedDB/Web Crypto unavailable, decryption fails, or quota exceeded.
 
 ## System Prompts
 Defined in `src/utils/prompts.js`:

@@ -118,6 +118,29 @@ function initSetupPhase() {
   $('modelA').onchange = checkSetupReady;
   $('modelB').onchange = checkSetupReady;
 
+  // Transparent session restore — no UI, no prompts
+  appSession.restore().then(restored => {
+    if (restored) {
+      appState.sessionRestored = true;
+      // Fetch models for panels that have endpoints filled in, then apply saved model selections
+      const promises = [];
+      if ($('endpointA')?.value.trim()) promises.push(fetchModelsFor('A'));
+      if ($('endpointB')?.value.trim()) promises.push(fetchModelsFor('B'));
+      if ($('endpointJudge')?.value.trim()) promises.push(fetchModelsFor('Judge'));
+      if (promises.length > 0) {
+        Promise.all(promises).finally(() => {
+          appSession.applyModelSelections();
+          checkSetupReady();
+        });
+      } else {
+        appSession.applyModelSelections();
+        checkSetupReady();
+      }
+    }
+  }).catch(err => {
+    console.warn('[Session] Restore failed:', err.message);
+  });
+
   $('btnStartDebate').onclick = async () => {
     const btn = $('btnStartDebate');
     if (btn.classList.contains('btn-disabled') && btn._missing && btn._missing.length > 0) {
@@ -135,7 +158,13 @@ function initSetupPhase() {
       btn.innerHTML = '<span class="spinner"></span> Starting...';
     }
 
-    // Gather judge config (optional)
+    // Gather config values
+    const endpointA = $('endpointA')?.value.trim().replace(/\/+$/, '') || '';
+    const apiKeyA = $('apiKeyA')?.value.trim() || '';
+    const modelA = $('modelA')?.value || '';
+    const endpointB = $('endpointB')?.value.trim().replace(/\/+$/, '') || '';
+    const apiKeyB = $('apiKeyB')?.value.trim() || '';
+    const modelB = $('modelB')?.value || '';
     const judgeModel = $('judgeModelSelect')?.value || '';
     const endpointJudge = $('endpointJudge')?.value.trim().replace(/\/+$/, '') || '';
     const apiKeyJudge = $('apiKeyJudge')?.value.trim() || '';
@@ -143,12 +172,12 @@ function initSetupPhase() {
     try {
       const res = await appApi.createDebate({
         statement,
-        modelA: $('modelA')?.value || '',
-        modelB: $('modelB')?.value || '',
-        endpointA: $('endpointA')?.value.trim().replace(/\/+$/, '') || '',
-        apiKeyA: $('apiKeyA')?.value.trim() || '',
-        endpointB: $('endpointB')?.value.trim().replace(/\/+$/, '') || '',
-        apiKeyB: $('apiKeyB')?.value.trim() || '',
+        modelA,
+        modelB,
+        endpointA,
+        apiKeyA,
+        endpointB,
+        apiKeyB,
         judgeModel: judgeModel || null,
         endpointJudge: endpointJudge || null,
         apiKeyJudge: apiKeyJudge || null,
@@ -157,13 +186,30 @@ function initSetupPhase() {
       const data = await res.json();
       if (!res.ok) { showToast(data.error || 'Failed to start debate', 'error'); return; }
 
+      // Silently save current config for next visit
+      const saveConfig = {
+        statement,
+        endpointA,
+        apiKeyA,
+        modelA,
+        endpointB,
+        apiKeyB,
+        modelB,
+        endpointJudge,
+        apiKeyJudge,
+        modelJudge: judgeModel,
+      };
+      appSession.save(saveConfig).catch(err => {
+        console.warn('[Session] Save failed:', err.message);
+      });
+
       appState.debateId = data.id;
       appState.debateData = {
         statement: data.statement,
         modelA: data.modelA,
         modelB: data.modelB,
-        endpointA: $('endpointA')?.value.trim().replace(/\/+$/, '') || '',
-        endpointB: $('endpointB')?.value.trim().replace(/\/+$/, '') || '',
+        endpointA,
+        endpointB,
         endpointJudge: endpointJudge || null,
         messages: [],
         nextSpeaker: data.nextSpeaker,
