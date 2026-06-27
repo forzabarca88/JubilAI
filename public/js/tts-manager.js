@@ -27,6 +27,7 @@ class RealtimeTTSManager {
     this.audioQueue = [];
     this.currentSource = null;
     this._isPlaying = false; // Prefixed to avoid collision with getter
+    this._isPaused = false;
 
     // Text buffering for sentence segmentation
     this.sentenceBuffer = '';
@@ -180,6 +181,10 @@ class RealtimeTTSManager {
   feedTextChunk(chunk, speaker) {
     if (!this.isInitialized) return;
 
+    // While paused, discard incoming text. Resume continues playback from
+    // the last completed sentence (or where it stopped).
+    if (this._isPaused) return;
+
     this.sentenceBuffer += chunk;
 
     // Extract complete sentences
@@ -193,10 +198,18 @@ class RealtimeTTSManager {
         }
       }
 
-      // Keep only unprocessed remainder
+      // Keep only unprocessed remainder (everything after the last matched sentence)
       const lastSent = sentences[sentences.length - 1];
-      const lastIdx = this.sentenceBuffer.lastIndexOf(lastSent);
-      this.sentenceBuffer = this.sentenceBuffer.substring(lastIdx + lastSent.length);
+      // Use indexOf from near the end to find the actual last occurrence,
+      // not an earlier duplicate
+      const searchStart = Math.max(0, this.sentenceBuffer.length - lastSent.length - 100);
+      const lastIdx = this.sentenceBuffer.indexOf(lastSent, searchStart);
+      if (lastIdx === -1) {
+        // Fallback: clear buffer if we can't find the anchor
+        this.sentenceBuffer = '';
+      } else {
+        this.sentenceBuffer = this.sentenceBuffer.substring(lastIdx + lastSent.length);
+      }
     }
 
     // Safety: cap buffer to prevent memory leaks
@@ -265,6 +278,7 @@ class RealtimeTTSManager {
 
   /** Play the next audio buffer in the queue */
   _playNextInQueue() {
+    if (this._isPaused) return;
     if (this.audioQueue.length === 0) {
       this._isPlaying = false;
       this.currentSource = null;
@@ -328,7 +342,43 @@ class RealtimeTTSManager {
     this._pendingGenerations = [];
     this._workerBusy = false;
     this._isPlaying = false;
+    this._isPaused = false;
     this.sentenceBuffer = '';
+  }
+
+  /** Pause playback — preserves audio queue and pending generations for resume */
+  pauseAudio() {
+    this._isPaused = true;
+    // Do NOT invalidate _activeId — let the worker's current result arrive and
+    // be added to the audio queue so it can be played on resume.
+
+    if (this.currentSource) {
+      try {
+        this.currentSource.stop();
+      } catch (e) {
+        /* already stopped */
+      }
+      this.currentSource = null;
+    }
+
+    this._isPlaying = false;
+    // audioQueue and _pendingGenerations are preserved for resume
+  }
+
+  /** Resume playback from where it paused */
+  async resumeAudio() {
+    if (!this._isPaused) return;
+    this._isPaused = false;
+
+    // Resume playback of queued audio
+    if (this.audioQueue.length > 0) {
+      this._playNextInQueue();
+    }
+
+    // If worker is idle and there are pending generations, start processing
+    if (!this._workerBusy && this._pendingGenerations.length > 0) {
+      this._processGenerationQueue();
+    }
   }
 
   /** Clean up worker and resources */
@@ -345,6 +395,10 @@ class RealtimeTTSManager {
   // Getters to fix the property name clash
   get isPlaying() {
     return this._isPlaying;
+  }
+
+  get isPaused() {
+    return this._isPaused;
   }
 
   hasQueuedAudio() {
@@ -380,4 +434,17 @@ async function finishDebateAudio(speaker) {
 /** Stop all audio playback */
 function stopDebateAudio() {
   ttsManager.stopAudio();
+  appState.ttsPaused = false;
+}
+
+/** Pause audio playback (preserves queues for resume) */
+function pauseDebateAudio() {
+  ttsManager.pauseAudio();
+  appState.ttsPaused = true;
+}
+
+/** Resume paused audio playback */
+async function resumeDebateAudio() {
+  await ttsManager.resumeAudio();
+  appState.ttsPaused = false;
 }

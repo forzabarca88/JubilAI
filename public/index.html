@@ -69,6 +69,86 @@
         <button class="btn btn-ghost" id="btnFetchJudge">Synchronize Models</button>
         <div id="modelsJudge" class="hidden"><div class="helper-text" id="modelsJudgeInfo"></div></div>
       </div>
+
+      <!-- Advanced Settings (Collapsible) -->
+      <div class="briefing-card full-width advanced-settings-card">
+        <button class="btn btn-ghost advanced-toggle" id="btnAdvancedToggle" onclick="toggleAdvancedSettings()">
+          ⚙️ Advanced Settings
+        </button>
+        <div id="advancedSettingsPanel" class="hidden">
+          <div class="advanced-section">
+            <h4 class="advanced-section-title">System Prompts</h4>
+            <div class="advanced-grid">
+              <div class="advanced-prompt-group">
+                <label class="advanced-label affirmative-prompt">Affirmative Prompt</label>
+                <textarea id="promptA" class="advanced-textarea" placeholder="Custom system prompt for the affirmative debater..."></textarea>
+                <button class="btn btn-sm btn-ghost" onclick="resetPrompt('A')">Reset to default</button>
+              </div>
+              <div class="advanced-prompt-group">
+                <label class="advanced-label negative-prompt">Negative Prompt</label>
+                <textarea id="promptB" class="advanced-textarea" placeholder="Custom system prompt for the negative debater..."></textarea>
+                <button class="btn btn-sm btn-ghost" onclick="resetPrompt('B')">Reset to default</button>
+              </div>
+              <div class="advanced-prompt-group judge-prompt">
+                <label class="advanced-label judge-prompt-label">Judge Prompt</label>
+                <textarea id="promptJudge" class="advanced-textarea" placeholder="Custom system prompt for the judge..."></textarea>
+                <button class="btn btn-sm btn-ghost" onclick="resetPrompt('Judge')">Reset to default</button>
+              </div>
+            </div>
+          </div>
+          <div class="advanced-section">
+            <h4 class="advanced-section-title">Debater Parameters</h4>
+            <div class="advanced-params">
+              <div class="param-group">
+                <label for="temperature">Temperature</label>
+                <input type="number" id="temperature" min="0" max="2" step="0.1" value="0.7" placeholder="0.7">
+                <span class="param-hint">Creativity (0 = precise, 1+ = random)</span>
+              </div>
+              <div class="param-group">
+                <label for="topP">Top P</label>
+                <input type="number" id="topP" min="0" max="1" step="0.05" placeholder="Not set">
+                <span class="param-hint">Nucleus sampling (0-1)</span>
+              </div>
+              <div class="param-group">
+                <label for="topK">Top K</label>
+                <input type="number" id="topK" min="0" max="100" step="1" placeholder="Not set">
+                <span class="param-hint">Top-k sampling</span>
+              </div>
+              <div class="param-group">
+                <label for="maxTokens">Max Tokens</label>
+                <input type="number" id="maxTokens" min="0" step="1" placeholder="Not set">
+                <span class="param-hint">Response length limit</span>
+              </div>
+            </div>
+          </div>
+          <div class="advanced-section judge-section">
+            <h4 class="advanced-section-title" style="color: var(--judge)">Judge Parameters</h4>
+            <div class="advanced-params">
+              <div class="param-group">
+                <label for="judgeTemperature">Temperature</label>
+                <input type="number" id="judgeTemperature" min="0" max="2" step="0.1" value="0.5" placeholder="0.5">
+                <span class="param-hint">Creativity (0 = precise, 1+ = random)</span>
+              </div>
+              <div class="param-group">
+                <label for="judgeTopP">Top P</label>
+                <input type="number" id="judgeTopP" min="0" max="1" step="0.05" placeholder="Not set">
+                <span class="param-hint">Nucleus sampling (0-1)</span>
+              </div>
+              <div class="param-group">
+                <label for="judgeTopK">Top K</label>
+                <input type="number" id="judgeTopK" min="0" max="100" step="1" placeholder="Not set">
+                <span class="param-hint">Top-k sampling</span>
+              </div>
+              <div class="param-group">
+                <label for="judgeMaxTokens">Max Tokens</label>
+                <input type="number" id="judgeMaxTokens" min="0" step="1" placeholder="Not set">
+                <span class="param-hint">Response length limit</span>
+              </div>
+            </div>
+          </div>
+          <p class="advanced-note">⚠️ Custom settings override the default prompts and parameters. Leave blank to use defaults.</p>
+        </div>
+      </div>
     </div>
 
     <div class="briefing-footer">
@@ -111,7 +191,8 @@
         <div class="stage-controls">
           <div class="tts-controls">
             <button class="tts-btn" id="ttsToggle" onclick="toggleTTSEnable()">🔊 Audio</button>
-            <button class="tts-btn" id="ttsStopBtn" onclick="stopDebateAudio()" disabled>⏹ Stop</button>
+            <button class="tts-btn" id="ttsStopBtn" onclick="pauseDebateAudioAndUI()" disabled>⏸ Pause</button>
+            <button class="tts-btn hidden" id="ttsResumeBtn" onclick="resumeDebateAudioAndUI()">▶ Resume</button>
             <div class="tts-status" id="ttsStatus"></div>
           </div>
           <div class="action-buttons">
@@ -191,7 +272,8 @@
 
         <div class="tts-controls verdict-tts-controls">
           <button class="tts-btn" id="ttsToggleVerdict" onclick="toggleTTSEnable()">🔊 Audio</button>
-          <button class="tts-btn" id="ttsStopBtnVerdict" onclick="stopDebateAudio()" disabled>⏹ Stop</button>
+          <button class="tts-btn" id="ttsStopBtnVerdict" onclick="pauseDebateAudioAndUI()" disabled>⏸ Pause</button>
+          <button class="tts-btn hidden" id="ttsResumeBtnVerdict" onclick="resumeDebateAudioAndUI()">▶ Resume</button>
           <div class="tts-status" id="ttsStatusVerdict"></div>
         </div>
       </div>
@@ -217,15 +299,28 @@
 <script>
 function toggleTTSEnable() {
   appState.ttsEnabled = !appState.ttsEnabled;
+  appState.ttsPaused = false;
   updateTTSEnableButton();
   if (!appState.ttsEnabled) {
     stopDebateAudio();
   }
 }
 
+function pauseDebateAudioAndUI() {
+  pauseDebateAudio();
+  updateTTSEnableButton();
+}
+
+function resumeDebateAudioAndUI() {
+  resumeDebateAudio().then(() => {
+    updateTTSEnableButton();
+  });
+}
+
 function updateTTSEnableButton() {
   const toggles = [$('ttsToggle'), $('ttsToggleVerdict')];
-  const stopBtns = [$('ttsStopBtn'), $('ttsStopBtnVerdict')];
+  const pauseBtns = [$('ttsStopBtn'), $('ttsStopBtnVerdict')];
+  const resumeBtns = [$('ttsResumeBtn'), $('ttsResumeBtnVerdict')];
   const statuses = [$('ttsStatus'), $('ttsStatusVerdict')];
 
   for (const toggle of toggles) {
@@ -241,8 +336,15 @@ function updateTTSEnableButton() {
     }
   }
 
-  for (const stopBtn of stopBtns) {
-    if (stopBtn) stopBtn.disabled = !appState.ttsEnabled;
+  for (const pauseBtn of pauseBtns) {
+    if (!pauseBtn) continue;
+    pauseBtn.disabled = !appState.ttsEnabled;
+    pauseBtn.classList.toggle('hidden', appState.ttsPaused);
+  }
+
+  for (const resumeBtn of resumeBtns) {
+    if (!resumeBtn) continue;
+    resumeBtn.classList.toggle('hidden', !appState.ttsPaused);
   }
 
   for (const status of statuses) {
@@ -261,7 +363,10 @@ function updateTTSEnableButton() {
     }
     parts.push(`Voices: A:${voices.A} | N:${voices.B} | J:${voices.judge}`);
     let stateClass = 'active';
-    if (ttsManager._pendingGenerations && ttsManager._pendingGenerations.length > 0) {
+    if (appState.ttsPaused) {
+      parts.push('⏸ Paused');
+      stateClass = 'paused';
+    } else if (ttsManager._pendingGenerations && ttsManager._pendingGenerations.length > 0) {
       parts.push(`Queue: ${ttsManager._pendingGenerations.length}`);
       stateClass = 'generating';
     }
@@ -299,6 +404,121 @@ function stopTTSStatusPoll() {
     ttsStatusInterval = null;
   }
   updateTTSEnableButton();
+}
+
+// ── Advanced Settings ─────────────────────────────────────────────
+
+// Default prompts (mirrors server-side prompts.js)
+const DEFAULT_PROMPTS = {
+  A: `You are a debater arguing that the following statement is TRUE.
+Provide strong, logical arguments supporting this position. Address counterarguments raised
+by your opponent. Be persuasive, cite reasoning, and directly respond to points made against
+your position. Stay focused on defending the statement. Do not concede or switch sides.
+
+FORMAT: Write your response as a formal debate speech — continuous prose in paragraph form.
+Do NOT use bullet points, numbered lists, dot points, or any list-style formatting. Real
+debaters deliver spoken speeches, not written outlines. Your arguments should flow naturally
+as connected paragraphs with smooth transitions between points.
+
+IMPORTANT: Be concise and succinct. Use fewer words — get straight to the point. Make each
+argument brief but impactful. Brevity will be a factor in judging the debate outcome.
+
+CRITICAL: Do not repeat the same point or argument. Each turn must introduce new reasoning or
+address new aspects of the opponent's arguments. Repetition of previously made points will be
+judged negatively and will hurt your score.`,
+
+  B: `You are a debater arguing that the following statement is FALSE.
+Provide strong, logical arguments against this position. Address counterarguments raised
+by your opponent. Be persuasive, cite reasoning, and directly respond to points made in
+favor of your opponent's position. Stay focused on refuting the statement. Do not concede or switch sides.
+
+FORMAT: Write your response as a formal debate speech — continuous prose in paragraph form.
+Do NOT use bullet points, numbered lists, dot points, or any list-style formatting. Real
+debaters deliver spoken speeches, not written outlines. Your arguments should flow naturally
+as connected paragraphs with smooth transitions between points.
+
+IMPORTANT: Be concise and succinct. Use fewer words — get straight to the point. Make each
+argument brief but impactful. Brevity will be a factor in judging the debate outcome.
+
+CRITICAL: Do not repeat the same point or argument. Each turn must introduce new reasoning or
+address new aspects of the opponent's arguments. Repetition of previously made points will be
+judged negatively and will hurt your score.`,
+
+  Judge: `You are an impartial judge evaluating a debate between two sides.
+One side argued that the statement is TRUE, the other argued it is FALSE.
+Evaluate both arguments based on: logical reasoning, evidence quality, rhetorical skill,
+how well each side addressed the opponent's points, conciseness, originality of arguments,
+and debate format.
+
+FORMAT EVALUATION: Proper debate speeches are delivered as continuous prose (spoken
+paragraphs), not as bullet points, numbered lists, or structured outlines. Debaters who
+present their arguments in proper speech format — with flowing prose and natural transitions
+— should be scored higher. Debaters who use bullet points, dot points, or list-style
+formatting are not following debate conventions and should be penalized.
+
+Points made succinctly and with fewer words will be favored — brevity is a factor in the
+debate outcome. Repetition of the same point by either side should be judged negatively
+and lower that side's score. Choose the winner and explain why.`
+};
+
+function toggleAdvancedSettings() {
+  const panel = $('advancedSettingsPanel');
+  const btn = $('btnAdvancedToggle');
+  if (!panel) return;
+
+  const isExpanded = panel.classList.toggle('hidden');
+  if (btn) {
+    btn.innerHTML = isExpanded ? '⚙️ Advanced Settings' : '⚙️ Hide Advanced Settings';
+  }
+
+  // Pre-fill prompts with defaults on first expand if blank
+  if (isExpanded === false) {
+    const promptA = $('promptA');
+    const promptB = $('promptB');
+    const promptJudge = $('promptJudge');
+    if (promptA && !promptA.value.trim()) promptA.value = DEFAULT_PROMPTS.A;
+    if (promptB && !promptB.value.trim()) promptB.value = DEFAULT_PROMPTS.B;
+    if (promptJudge && !promptJudge.value.trim()) promptJudge.value = DEFAULT_PROMPTS.Judge;
+  }
+}
+
+function resetPrompt(role) {
+  const el = role === 'A' ? $('promptA') : role === 'B' ? $('promptB') : $('promptJudge');
+  if (el) {
+    el.value = DEFAULT_PROMPTS[role] || '';
+    showToast(`${role === 'Judge' ? 'Judge' : role === 'A' ? 'Affirmative' : 'Negative'} prompt reset to default`, 'info');
+  }
+}
+
+function gatherAdvancedSettings() {
+  const promptA = $('promptA');
+  const promptB = $('promptB');
+  const promptJudge = $('promptJudge');
+  const temperature = $('temperature');
+  const topP = $('topP');
+  const topK = $('topK');
+  const maxTokens = $('maxTokens');
+  const judgeTemperature = $('judgeTemperature');
+  const judgeTopP = $('judgeTopP');
+  const judgeTopK = $('judgeTopK');
+  const judgeMaxTokens = $('judgeMaxTokens');
+
+  const settings = {
+    promptA: promptA?.value.trim() || '',
+    promptB: promptB?.value.trim() || '',
+    promptJudge: promptJudge?.value.trim() || '',
+    temperature: temperature?.value ? parseFloat(temperature.value) : undefined,
+    topP: topP?.value ? parseFloat(topP.value) : undefined,
+    topK: topK?.value ? parseInt(topK.value) : undefined,
+    maxTokens: maxTokens?.value ? parseInt(maxTokens.value) : undefined,
+    judgeTemperature: judgeTemperature?.value ? parseFloat(judgeTemperature.value) : undefined,
+    judgeTopP: judgeTopP?.value ? parseFloat(judgeTopP.value) : undefined,
+    judgeTopK: judgeTopK?.value ? parseInt(judgeTopK.value) : undefined,
+    judgeMaxTokens: judgeMaxTokens?.value ? parseInt(judgeMaxTokens.value) : undefined,
+  };
+
+  appState.advancedSettings = settings;
+  return settings;
 }
 
 document.addEventListener('DOMContentLoaded', () => {

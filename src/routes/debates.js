@@ -11,6 +11,12 @@ router.post('/debate', (req, res) => {
     endpointA, apiKeyA,
     endpointB, apiKeyB,
     judgeModel, endpointJudge, apiKeyJudge,
+    // Optional: custom prompts
+    promptA, promptB, promptJudge,
+    // Optional: LLM parameters for debaters
+    temperature, topP, topK, maxTokens,
+    // Optional: LLM parameters for judge
+    judgeTemperature, judgeTopP, judgeTopK, judgeMaxTokens,
   } = req.body;
 
   if (!statement || !modelA || !modelB || !endpointA || !endpointB) {
@@ -39,6 +45,20 @@ router.post('/debate', (req, res) => {
     judgeModel: judgeModel || null,
     verdict: null,
     autoJudge: !!(judgeModel && endpointJudge),
+    // Custom prompts (empty strings mean use defaults)
+    customPromptA: promptA || '',
+    customPromptB: promptB || '',
+    customPromptJudge: promptJudge || '',
+    // LLM parameters (null means use built-in defaults)
+    temperature: typeof temperature === 'number' ? temperature : null,
+    topP: typeof topP === 'number' ? topP : null,
+    topK: typeof topK === 'number' ? topK : null,
+    maxTokens: typeof maxTokens === 'number' ? maxTokens : null,
+    // Judge-specific LLM parameters (null means use built-in judge defaults)
+    judgeTemperature: typeof judgeTemperature === 'number' ? judgeTemperature : null,
+    judgeTopP: typeof judgeTopP === 'number' ? judgeTopP : null,
+    judgeTopK: typeof judgeTopK === 'number' ? judgeTopK : null,
+    judgeMaxTokens: typeof judgeMaxTokens === 'number' ? judgeMaxTokens : null,
   });
 
   res.json({

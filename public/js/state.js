@@ -19,6 +19,22 @@ const appState = {
   ttsEnabled: false,
   ttsSpeakerVoices: {},
   ttsActiveSpeaker: null,
+  ttsPaused: false,
+
+  // Advanced settings (prompts + LLM params)
+  advancedSettings: {
+    promptA: '',
+    promptB: '',
+    promptJudge: '',
+    temperature: undefined,
+    topP: undefined,
+    topK: undefined,
+    maxTokens: undefined,
+    judgeTemperature: undefined,
+    judgeTopP: undefined,
+    judgeTopK: undefined,
+    judgeMaxTokens: undefined,
+  },
 
   // Session persistence state
   sessionRestored: false,

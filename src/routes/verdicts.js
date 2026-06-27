@@ -48,7 +48,7 @@ router.post('/debate/:id/verdict', findDebate, async (req, res) => {
   ).join('\n');
 
   const messages = [
-    { role: 'system', content: SYSTEM_PROMPT_JUDGE },
+    { role: 'system', content: debate.customPromptJudge || SYSTEM_PROMPT_JUDGE },
     {
       role: 'user',
       content: `Statement: "${debate.statement}"
@@ -72,12 +72,22 @@ Format your response starting with "Winner: The Affirmative" or "Winner: The Neg
 
   async function runStream() {
     let content = '';
-    const stream = await client.chat.completions.create({
+    const streamOptions = {
       model: debate.judgeModel,
       messages,
       stream: true,
-      temperature: 0.5,
-    });
+      temperature: debate.judgeTemperature ?? 0.5,
+    };
+    if (debate.judgeTopP !== null && debate.judgeTopP !== undefined) {
+      streamOptions.top_p = debate.judgeTopP;
+    }
+    if (debate.judgeTopK !== null && debate.judgeTopK !== undefined && debate.judgeTopK > 0) {
+      streamOptions.top_k = debate.judgeTopK;
+    }
+    if (debate.judgeMaxTokens !== null && debate.judgeMaxTokens !== undefined && debate.judgeMaxTokens > 0) {
+      streamOptions.max_tokens = debate.judgeMaxTokens;
+    }
+    const stream = await client.chat.completions.create(streamOptions);
 
     for await (const chunk of stream) {
       const delta = chunk.choices?.[0]?.delta?.content || '';

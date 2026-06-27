@@ -21,6 +21,22 @@ function resetToSetup() {
   appState.ttsEnabled = false;
   appState.ttsSpeakerVoices = {};
   appState.ttsActiveSpeaker = null;
+  appState.ttsPaused = false;
+
+  // Reset advanced settings
+  appState.advancedSettings = {
+    promptA: '',
+    promptB: '',
+    promptJudge: '',
+    temperature: undefined,
+    topP: undefined,
+    topK: undefined,
+    maxTokens: undefined,
+    judgeTemperature: undefined,
+    judgeTopP: undefined,
+    judgeTopK: undefined,
+    judgeMaxTokens: undefined,
+  };
 
   // Update TTS UI
   updateTTSEnableButton();
@@ -75,6 +91,34 @@ function resetToSetup() {
   if (stmt) stmt.value = '';
   const btn = $('btnStartDebate');
   if (btn) btn.disabled = true;
+
+  // Reset advanced settings panel
+  const promptA = $('promptA');
+  if (promptA) promptA.value = '';
+  const promptB = $('promptB');
+  if (promptB) promptB.value = '';
+  const promptJudge = $('promptJudge');
+  if (promptJudge) promptJudge.value = '';
+  const temperature = $('temperature');
+  if (temperature) temperature.value = '0.7';
+  const topP = $('topP');
+  if (topP) topP.value = '';
+  const topK = $('topK');
+  if (topK) topK.value = '';
+  const maxTokens = $('maxTokens');
+  if (maxTokens) maxTokens.value = '';
+  const judgeTemperature = $('judgeTemperature');
+  if (judgeTemperature) judgeTemperature.value = '0.5';
+  const judgeTopP = $('judgeTopP');
+  if (judgeTopP) judgeTopP.value = '';
+  const judgeTopK = $('judgeTopK');
+  if (judgeTopK) judgeTopK.value = '';
+  const judgeMaxTokens = $('judgeMaxTokens');
+  if (judgeMaxTokens) judgeMaxTokens.value = '';
+  const advPanel = $('advancedSettingsPanel');
+  if (advPanel) advPanel.classList.add('hidden');
+  const advToggle = $('btnAdvancedToggle');
+  if (advToggle) advToggle.innerHTML = '⚙️ Advanced Settings';
 
   // Hide retry buttons
   const rtt = $('btnRetryTurn');

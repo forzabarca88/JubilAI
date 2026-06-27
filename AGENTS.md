@@ -13,7 +13,7 @@
 
 ## Frontend Module Loading Order
 Scripts in `public/index.html` are loaded in this strict order:
-1. `js/state.js` — Global `appState` object (models, debate data, turn counts, streaming flag, TTS state, `sessionRestored` flag)
+1. `js/state.js` — Global `appState` object (models, debate data, turn counts, streaming flag, TTS state including `ttsPaused`, `advancedSettings` for custom prompts/LLM params, `sessionRestored` flag)
 2. `js/dom-helpers.js` — `$()` helper with null guard, `showPhase()`, `showToast()`, scroll helpers
 3. `js/api.js` — Global `appApi` object wrapping all fetch calls to `/api/*` endpoints
 4. `js/session-storage.js` — Global `appSession` object for transparent encrypted session persistence (IndexedDB key + localStorage ciphertext, AES-256-GCM encryption, auto-restore on load, auto-save on debate start)
@@ -55,7 +55,7 @@ All debates are stored in a `Map` (keyed by UUID). Data is lost on server restar
 - **Encryption**: AES-256-GCM authenticated encryption. 256-bit random key via `crypto.getRandomValues(32)`. 12-byte random IV per encryption.
 - **IndexedDB schema**: Database `jubilai_storage` v1, store `keys` (keyPath: `id`), record `{ id: 'aes_key', keyData: <ArrayBuffer> }`
 - **localStorage format (encrypted)**: Base64-encoded concatenation of `IV (12 bytes) || ciphertext` under key `jubilai_session`
-- **Plaintext fallback** (plain HTTP, no Web Crypto): Stores non-sensitive config in plain JSON under `jubilai_session_plain`. API keys (`apiKeyA`, `apiKeyB`, `apiKeyJudge`) are **never stored** in plaintext. Safe fields: `statement`, `endpointA`, `endpointB`, `endpointJudge`, `modelA`, `modelB`, `modelJudge`.
+- **Plaintext fallback** (plain HTTP, no Web Crypto): Stores non-sensitive config in plain JSON under `jubilai_session_plain`. API keys (`apiKeyA`, `apiKeyB`, `apiKeyJudge`) are **never stored** in plaintext. Safe fields: `statement`, `endpointA`, `endpointB`, `endpointJudge`, `modelA`, `modelB`, `modelJudge`, `promptA`, `promptB`, `promptJudge`, `temperature`, `topP`, `topK`, `maxTokens`.
 - **Auto-restore**: `initSetupPhase()` calls `appSession.restore()` which tries encrypted data first, then falls back to plaintext. Silently auto-fills form fields. Fetches models for panels with endpoints, then re-evaluates button readiness.
 - **Auto-save**: After successful debate creation in `btnStartDebate.onclick`, `appSession.save()` encrypts current config (or falls back to plaintext without API keys) and stores in localStorage.
 - **`resetToSetup()`**: Clears `appState.sessionRestored` flag so next page load re-restores from saved session.
@@ -67,7 +67,16 @@ Defined in `src/utils/prompts.js`:
 - **FALSE debater**: Argue the statement is false. Must write as a formal debate speech (continuous prose, no bullet points/lists). Must be concise. Must not repeat arguments.
 - **Judge**: Evaluate based on logic, evidence, rhetoric, conciseness, originality, and debate format. Repetition is penalized. Proper speech format (prose paragraphs) scores higher; bullet points/lists are penalized as non-conforming to debate conventions.
 
-## Mock Server Data
+## Advanced Settings (Implemented)
+- Setup phase has a collapsible "Advanced Settings" panel (`#advancedSettingsPanel`) toggled by `toggleAdvancedSettings()`.
+- **Custom prompts**: 3 textareas — `#promptA` (Affirmative), `#promptB` (Negative), `#promptJudge` (Judge). Pre-filled with server defaults on first expand. "Reset to default" buttons restore the original prompt. `gatherAdvancedSettings()` collects values into `appState.advancedSettings`.
+- **Debater Parameters**: `temperature` (pre-filled default `0.7` — server default for debaters), `topP` (blank), `topK` (blank), `maxTokens` (blank). Only non-blank values are sent to the server.
+- **Judge Parameters**: `judgeTemperature` (pre-filled default `0.5` — server default for judge), `judgeTopP` (blank), `judgeTopK` (blank), `judgeMaxTokens` (blank). Separate from debater params. Visual styling uses judge gold color.
+- **Server-side handling**: `src/routes/debates.js` stores custom prompts as `debate.customPromptA/B/Judge` and debater params as `debate.temperature/topP/topK/maxTokens` (null when unset), judge params as `debate.judgeTemperature/topP/topK/maxTokens` (null when unset). `src/routes/turns.js` uses debater params. `src/routes/verdicts.js` uses judge params with judge-specific defaults (temperature 0.5).
+- **Session persistence**: `appSession` saves/restores all 10 advanced settings fields. On restore, `topP`/`topK`/`maxTokens` and `judgeTopP`/`judgeTopK`/`judgeMaxTokens` are skipped if they equal server defaults (1/0/0) since those weren't sent before.
+- **Reset**: `resetToSetup()` clears all advanced settings state and DOM. Prompts blank, debater temperature resets to `0.7`, judge temperature resets to `0.5`, all params blank.
+
+## Text-to-Speech (Implemented)
 `mock/src/utils/mock-data.js` contains:
 - `MOCK_MODELS`: 6 fake model IDs (llama3.1:8b, mistral:7b, gemma:7b, qwen2.5:7b, phi3:3.8b, deepseek-coder-v2:16b)
 - `MOCK_DEBATE_CONTENT.A`: 3 mock arguments for The Affirmative
@@ -80,16 +89,18 @@ Defined in `src/utils/prompts.js`:
 - Model: `onnx-community/Kokoro-82M-v1.0-ONNX` (publicly accessible ONNX weights, no auth required). kokoro-js bundles `@huggingface/transformers@3.5.1`
 - **Inference**: Worker uses `device: 'wasm'` ONNX Runtime with `dtype: 'q4'` (4-bit quantization, ~43MB download) and multi-threaded WASM backend (`env.backends.onnx.wasm.numThreads = navigator.hardwareConcurrency`). Requires COOP+COEP headers from server for SharedArrayBuffer access. Single-threaded WASM fallback if headers missing (~10-20x slower).
 - **Voice pool**: 28 Kokoro voices (11 American English female, 8 American English male, 4 British English female, 4 British English male). 3 random distinct voices assigned to The Affirmative, The Negative, and Judge
-- **Streaming TTS**: Text chunks buffered and segmented at sentence boundaries (`.`, `!`, `?`, `\n`). Sentences queued serially and dispatched to worker as `generate` requests (not `stream-generate` — see below). Worker returns complete WAV `ArrayBuffer` via `rawAudio.toWav()`. Main thread decodes via `AudioContext.decodeAudioData()` and queues for playback. Pipelined architecture: worker synthesizes Sentence B while Sentence A plays, yielding gapless audio without sub-sentence streaming.
+- **Streaming TTS**: Text chunks buffered in `sentenceBuffer` and segmented at sentence boundaries (`.`, `!`, `?`, `\n`). Sentences queued serially and dispatched to worker as `generate` requests (not `stream-generate`). Worker returns complete WAV `ArrayBuffer` via `rawAudio.toWav()`. Main thread decodes via `AudioContext.decodeAudioData()` and queues for playback. Pipelined architecture: worker synthesizes Sentence B while Sentence A plays, yielding gapless audio without sub-sentence streaming.
+- **Buffer remainder**: After extracting sentences, keeps only unprocessed remainder using `indexOf` from near end of buffer (not `lastIndexOf`) to avoid finding wrong positions for repeated text.
+- **Pause/Resume**: `pauseAudio()` stops current playback, invalidates active worker request, preserves audio queue and pending generations. `resumeAudio()` restores playback from where it stopped. While paused, incoming `feedTextChunk` calls are discarded (text is not accumulated).
 - **No `stream()`**: Disabled due to a known `kokoro-js@1.2.1` bug where passing a plain string to `kokoro.stream(text)` hangs indefinitely. Standard `generate()` is fast enough (~1-2s/sentence with WASM/q4/multi-thread) and pipelined queue ensures gapless playback.
 - **Worker protocol**: Main thread sends `init`/`stream-generate`/`stop` messages. Worker responds with `ready`/`audio-chunk`/`audio-done`/`audio`/`error`/`initError` messages
-- **Controls**: Toggle button (enable/disable) and stop button in debate phase. Status shows assigned voice IDs
-- **State**: `appState.ttsEnabled`, `appState.ttsSpeakerVoices`, `appState.ttsActiveSpeaker`
-- **Global functions**: `startDebateAudio()`, `feedAudioText()`, `finishDebateAudio()`, `stopDebateAudio()`
+- **Controls**: Toggle button (enable/disable) and Pause/Resume button in debate phase. Status shows assigned voice IDs and pause state. Separate controls in verdict phase.
+- **State**: `appState.ttsEnabled`, `appState.ttsSpeakerVoices`, `appState.ttsActiveSpeaker`, `appState.ttsPaused`
+- **Global functions**: `startDebateAudio()`, `feedAudioText()`, `finishDebateAudio()`, `stopDebateAudio()`, `pauseDebateAudio()`, `resumeDebateAudio()`
 - **Integration**: Auto-enabled on debate start. TTS feeds text during debate turns (The Affirmative/The Negative voices) and verdict (Judge voice). Error/abort/catch handlers flush TTS buffers and stop audio.
 - **Graceful fallback**: Debate proceeds normally if TTS initialization fails
 
-## Planned but Unimplemented Features
+## Mock Server Data
 
 ## CSS Architecture
 - Dark theme with CSS custom properties in `:root`
