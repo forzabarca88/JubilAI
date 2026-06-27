@@ -51,15 +51,15 @@ All debates are stored in a `Map` (keyed by UUID). Data is lost on server restar
 
 ## Session Persistence (Implemented)
 - `js/session-storage.js`: Global `appSession` object for transparent encrypted session persistence
-- **Two-layer storage**: IndexedDB stores the AES-256-GCM encryption key; localStorage stores the encrypted config ciphertext. Split across two storage mechanisms with different access surfaces.
+- **Two-layer encrypted storage** (HTTPS/localhost): IndexedDB stores the AES-256-GCM encryption key; localStorage stores the encrypted config ciphertext under `jubilai_session`. Split across two storage mechanisms with different access surfaces.
 - **Encryption**: AES-256-GCM authenticated encryption. 256-bit random key via `crypto.getRandomValues(32)`. 12-byte random IV per encryption.
 - **IndexedDB schema**: Database `jubilai_storage` v1, store `keys` (keyPath: `id`), record `{ id: 'aes_key', keyData: <ArrayBuffer> }`
-- **localStorage format**: Base64-encoded concatenation of `IV (12 bytes) || ciphertext` under key `jubilai_session`
-- **Data saved**: `statement`, `endpointA`, `apiKeyA`, `modelA`, `endpointB`, `apiKeyB`, `modelB`, `endpointJudge`, `apiKeyJudge`, `modelJudge`
-- **Auto-restore**: `initSetupPhase()` calls `appSession.restore()` which silently loads key from IndexedDB, decrypts localStorage, and auto-fills form fields. Fetches models for panels with endpoints, then re-evaluates button readiness.
-- **Auto-save**: After successful debate creation in `btnStartDebate.onclick`, `appSession.save()` encrypts current config and stores in localStorage.
+- **localStorage format (encrypted)**: Base64-encoded concatenation of `IV (12 bytes) || ciphertext` under key `jubilai_session`
+- **Plaintext fallback** (plain HTTP, no Web Crypto): Stores non-sensitive config in plain JSON under `jubilai_session_plain`. API keys (`apiKeyA`, `apiKeyB`, `apiKeyJudge`) are **never stored** in plaintext. Safe fields: `statement`, `endpointA`, `endpointB`, `endpointJudge`, `modelA`, `modelB`, `modelJudge`.
+- **Auto-restore**: `initSetupPhase()` calls `appSession.restore()` which tries encrypted data first, then falls back to plaintext. Silently auto-fills form fields. Fetches models for panels with endpoints, then re-evaluates button readiness.
+- **Auto-save**: After successful debate creation in `btnStartDebate.onclick`, `appSession.save()` encrypts current config (or falls back to plaintext without API keys) and stores in localStorage.
 - **`resetToSetup()`**: Clears `appState.sessionRestored` flag so next page load re-restores from saved session.
-- **Graceful fallback**: All failures are silent (console.warn only, no toasts). App degrades to empty form if IndexedDB/Web Crypto unavailable, decryption fails, or quota exceeded.
+- **Graceful fallback**: All failures are silent (console.warn only, no toasts). App degrades to empty form if both encrypted and plaintext storage fail.
 
 ## System Prompts
 Defined in `src/utils/prompts.js`:

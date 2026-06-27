@@ -4,6 +4,10 @@
  * Two-layer storage: IndexedDB (encryption key) + localStorage (encrypted data).
  * AES-256-GCM authenticated encryption. Zero UI, zero prompts, zero user interaction.
  *
+ * Fallback: When Web Crypto / IndexedDB is unavailable (e.g., plain HTTP), stores
+ * non-sensitive config (endpoints, models, statement) in plain localStorage JSON.
+ * API keys are never stored in plaintext.
+ *
  * All failures are silent (console.warn only). The app always degrades gracefully.
  */
 const appSession = {
@@ -12,6 +16,44 @@ const appSession = {
   DB_STORE: 'keys',
   KEY_RECORD_ID: 'aes_key',
   LS_KEY: 'jubilai_session',
+  LS_KEY_PLAIN: 'jubilai_session_plain',
+
+  // Fields that are safe to store in plaintext (no secrets)
+  SAFE_FIELDS: ['statement', 'endpointA', 'endpointB', 'endpointJudge', 'modelA', 'modelB', 'modelJudge'],
+
+  // Fields that contain secrets (API keys) — only stored when encryption is available
+  SECRET_FIELDS: ['apiKeyA', 'apiKeyB', 'apiKeyJudge'],
+
+  /**
+   * Whether the browser supports encrypted storage.
+   */
+  get cryptoAvailable() {
+    return typeof indexedDB !== 'undefined' && typeof crypto.subtle !== 'undefined';
+  },
+
+  // Cached config object for deferred model selection
+  _restoredConfig: null,
+
+  // ── IndexedDB helpers ──────────────────────────────────────────
+
+  /**
+   * Open (or create) the IndexedDB database.
+   */
+  _openDb() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(this.DB_NAME, this.DB_VERSION);
+
+      request.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(this.DB_STORE)) {
+          db.createObjectStore(this.DB_STORE, { keyPath: 'id' });
+        }
+      };
+
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  },
 
   /**
    * Load the AES key from IndexedDB and import it as a CryptoKey.
@@ -67,6 +109,8 @@ const appSession = {
 
     return cryptoKey;
   },
+
+  // ── Encryption ─────────────────────────────────────────────────
 
   /**
    * AES-GCM encrypt the config object. Returns base64-encoded (IV || ciphertext).
@@ -126,55 +170,111 @@ const appSession = {
     }
   },
 
+  // ── Plaintext fallback ─────────────────────────────────────────
+
   /**
-   * Encrypt config and store in localStorage. Returns true on success.
+   * Strip secret fields from config for plaintext storage.
    */
-  async save(config) {
-    if (typeof indexedDB === 'undefined' || typeof crypto.subtle === 'undefined') {
-      console.warn('[Session] IndexedDB or Web Crypto unavailable — skipping save');
-      return false;
+  _stripSecrets(config) {
+    const safe = {};
+    for (const field of this.SAFE_FIELDS) {
+      if (config[field]) safe[field] = config[field];
     }
+    return safe;
+  },
 
+  /**
+   * Store config as plain JSON in localStorage (no API keys).
+   */
+  _savePlain(config) {
+    const safe = this._stripSecrets(config);
     try {
-      const encrypted = await this.encrypt(config);
-      if (!encrypted) return false;
-
-      localStorage.setItem(this.LS_KEY, encrypted);
+      localStorage.setItem(this.LS_KEY_PLAIN, JSON.stringify({
+        version: 1,
+        timestamp: Date.now(),
+        encrypted: false,
+        config: safe
+      }));
       return true;
     } catch (err) {
-      console.warn('[Session] Save failed:', err.message);
+      console.warn('[Session] Plaintext save failed:', err.message);
       return false;
     }
   },
 
   /**
-   * Load from localStorage, decrypt, and auto-fill DOM fields.
-   * Returns true if a session was successfully restored.
+   * Load plaintext config from localStorage.
+   */
+  _restorePlain() {
+    const blob = localStorage.getItem(this.LS_KEY_PLAIN);
+    if (!blob) return null;
+
+    try {
+      const data = JSON.parse(blob);
+      if (data && data.config && data.encrypted === false) return data;
+    } catch {
+      // Corrupted JSON
+    }
+    return null;
+  },
+
+  // ── Public API ─────────────────────────────────────────────────
+
+  /**
+   * Save config. Uses encryption if available, plaintext fallback otherwise.
+   * In plaintext mode, API keys are excluded.
+   */
+  async save(config) {
+    if (this.cryptoAvailable) {
+      try {
+        const encrypted = await this.encrypt(config);
+        if (!encrypted) {
+          // Encryption failed, fall through to plaintext
+        } else {
+          localStorage.setItem(this.LS_KEY, encrypted);
+          // Clear any stale plaintext data
+          localStorage.removeItem(this.LS_KEY_PLAIN);
+          return true;
+        }
+      } catch (err) {
+        console.warn('[Session] Encryption failed, falling back to plaintext:', err.message);
+      }
+    }
+
+    // Plaintext fallback — store everything except API keys
+    return this._savePlain(config);
+  },
+
+  /**
+   * Restore session. Tries encrypted data first, falls back to plaintext.
    * Text inputs are filled immediately; model selects are filled
-   * after fetchModelsFor populates the dropdowns (via _applyToDom(config, true)).
+   * after fetchModelsFor populates the dropdowns (via applyModelSelections).
    */
   async restore() {
-    if (typeof indexedDB === 'undefined' || typeof crypto.subtle === 'undefined') {
-      console.warn('[Session] IndexedDB or Web Crypto unavailable — skipping restore');
-      return false;
+    let data = null;
+
+    // 1. Try encrypted restore
+    if (this.cryptoAvailable) {
+      const blob = localStorage.getItem(this.LS_KEY);
+      if (blob) {
+        data = await this.decrypt(blob);
+        if (data && data.config) {
+          this._applyToDom(data.config, false);
+          this._restoredConfig = data.config;
+          return true;
+        }
+      }
     }
 
-    const blob = localStorage.getItem(this.LS_KEY);
-    if (!blob) return false;
-
-    const decrypted = await this.decrypt(blob);
-    if (!decrypted || !decrypted.config) {
-      console.warn('[Session] Decryption failed or invalid data');
-      return false;
+    // 2. Try plaintext restore
+    data = this._restorePlain();
+    if (data && data.config) {
+      this._applyToDom(data.config, false);
+      this._restoredConfig = data.config;
+      return true;
     }
 
-    // Apply text inputs immediately; model selects deferred to after fetch
-    this._applyToDom(decrypted.config, false);
-
-    // Store config for post-fetch model selection
-    this._restoredConfig = decrypted.config;
-
-    return true;
+    return false;
   },
 
   /**
@@ -188,10 +288,11 @@ const appSession = {
   },
 
   /**
-   * Clear both IndexedDB key and localStorage data.
+   * Clear both encrypted and plaintext storage.
    */
   async remove() {
     localStorage.removeItem(this.LS_KEY);
+    localStorage.removeItem(this.LS_KEY_PLAIN);
     try {
       const db = await this._openDb();
       const tx = db.transaction(this.DB_STORE, 'readwrite');
@@ -206,12 +307,13 @@ const appSession = {
   },
 
   /**
-   * Apply decrypted config to DOM elements.
-   * Text inputs are set immediately. Model selects are set only
+   * Apply config to DOM elements.
+   * Text inputs are always set. Model selects are set only
    * if `afterFetch` is true (i.e., dropdowns are already populated).
+   * Missing config keys are silently skipped.
    */
   _applyToDom(config, afterFetch = false) {
-    // Text inputs — always set
+    // Text inputs — always set (API key fields included but skipped if missing from plaintext config)
     const textFields = [
       ['statement', 'statement'],
       ['endpointA', 'endpointA'],
@@ -248,24 +350,5 @@ const appSession = {
         // If saved model isn't in fetched list, leave dropdown at default
       }
     }
-  },
-
-  /**
-   * Open (or create) the IndexedDB database.
-   */
-  _openDb() {
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open(this.DB_NAME, this.DB_VERSION);
-
-      request.onupgradeneeded = (e) => {
-        const db = e.target.result;
-        if (!db.objectStoreNames.contains(this.DB_STORE)) {
-          db.createObjectStore(this.DB_STORE, { keyPath: 'id' });
-        }
-      };
-
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
   }
 };
