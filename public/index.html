@@ -191,7 +191,7 @@
         <div class="stage-controls">
           <div class="tts-controls">
             <button class="tts-btn" id="ttsToggle" onclick="toggleTTSEnable()">🔊 Audio</button>
-            <button class="tts-btn" id="ttsStopBtn" onclick="pauseDebateAudio()" disabled>⏸ Pause</button>
+            <button class="tts-btn" id="ttsStopBtn" onclick="pauseDebateAudioAndUI()" disabled>⏸ Pause</button>
             <button class="tts-btn hidden" id="ttsResumeBtn" onclick="resumeDebateAudioAndUI()">▶ Resume</button>
             <div class="tts-status" id="ttsStatus"></div>
           </div>
@@ -272,7 +272,7 @@
 
         <div class="tts-controls verdict-tts-controls">
           <button class="tts-btn" id="ttsToggleVerdict" onclick="toggleTTSEnable()">🔊 Audio</button>
-          <button class="tts-btn" id="ttsStopBtnVerdict" onclick="pauseDebateAudio()" disabled>⏸ Pause</button>
+          <button class="tts-btn" id="ttsStopBtnVerdict" onclick="pauseDebateAudioAndUI()" disabled>⏸ Pause</button>
           <button class="tts-btn hidden" id="ttsResumeBtnVerdict" onclick="resumeDebateAudioAndUI()">▶ Resume</button>
           <div class="tts-status" id="ttsStatusVerdict"></div>
         </div>
@@ -304,6 +304,11 @@ function toggleTTSEnable() {
   if (!appState.ttsEnabled) {
     stopDebateAudio();
   }
+}
+
+function pauseDebateAudioAndUI() {
+  pauseDebateAudio();
+  updateTTSEnableButton();
 }
 
 function resumeDebateAudioAndUI() {

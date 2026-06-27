@@ -278,6 +278,7 @@ class RealtimeTTSManager {
 
   /** Play the next audio buffer in the queue */
   _playNextInQueue() {
+    if (this._isPaused) return;
     if (this.audioQueue.length === 0) {
       this._isPlaying = false;
       this.currentSource = null;
@@ -348,7 +349,8 @@ class RealtimeTTSManager {
   /** Pause playback — preserves audio queue and pending generations for resume */
   pauseAudio() {
     this._isPaused = true;
-    this._activeId = null; // Discard incoming chunks from current worker request
+    // Do NOT invalidate _activeId — let the worker's current result arrive and
+    // be added to the audio queue so it can be played on resume.
 
     if (this.currentSource) {
       try {
