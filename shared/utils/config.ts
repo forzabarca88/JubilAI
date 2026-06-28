@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { RootConfig } from '../types/config';
 
-const CONFIG_PATH = path.resolve(__dirname, '../../config.json');
+const CONFIG_PATH = path.resolve(process.cwd(), 'config.json');
 
 let _config: RootConfig | null = null;
 
