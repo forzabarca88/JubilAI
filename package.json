@@ -16,7 +16,8 @@
     "dev:client": "esbuild client/index.ts --bundle --outfile=dist/js/bundle.js --format=esm --watch",
     "dev:mock": "tsx watch mock/index.ts",
     "typecheck": "tsc --noEmit -p tsconfig.server.json && tsc --noEmit -p tsconfig.client.json",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "build:docker": "docker build -t jubilai ."
   },
   "dependencies": {
     "cors": "^2.8.5",

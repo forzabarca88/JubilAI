@@ -1,0 +1,10 @@
+node_modules
+dist
+*.log
+.git
+.gitignore
+.vscode
+AGENTS.md
+PLAN.md
+README.md
+test-e2e.mjs

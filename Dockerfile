@@ -1,48 +1,57 @@
 # ──────────────────────────────────────────────────────────────
-# Stage 1: Install production dependencies
+# Stage 1: Build TypeScript sources
 # ──────────────────────────────────────────────────────────────
 FROM node:24.16.0-alpine AS builder
 WORKDIR /app
 
-# Copy dependency manifests first (leveraged across builds)
+# Copy dependency manifests first (layer caching)
 COPY package.json package-lock.json ./
 
-# Install production-only dependencies (no devDependencies)
-RUN npm ci --omit=dev
+# Install ALL dependencies (devDependencies needed for tsc + esbuild)
+RUN npm ci
+
+# Copy source required for the build
+COPY tsconfig.json tsconfig.server.json tsconfig.client.json ./
+COPY shared/ ./shared/
+COPY server/ ./server/
+COPY client/ ./client/
+COPY scripts/ ./scripts/
+COPY config.json ./
+
+# Run the full build: tsc (server), esbuild (client bundle + tts worker)
+RUN npm run build
 
 # ──────────────────────────────────────────────────────────────
-# Stage 2: Runtime image
+# Stage 2: Production runtime
 # ──────────────────────────────────────────────────────────────
 FROM node:24.16.0-alpine
 
-# Metadata
-LABEL org.opencontainers.image.title="LLM Debate Arena"
+LABEL org.opencontainers.image.title="JubilAI"
 LABEL org.opencontainers.image.description="Two LLM models debate, a third judges"
 LABEL org.opencontainers.image.version="1.0.0"
 
-# Runtime environment
 ENV NODE_ENV=production
 ENV PORT=3000
 
 WORKDIR /app
 
-# Copy production node_modules from builder stage
+# Copy production-only node_modules from builder
 COPY --from=builder /app/node_modules ./node_modules
 
-# Copy application source
+# Copy build output, public assets, config, and package.json
 COPY package.json ./
-COPY server.js ./
-COPY src/ ./src/
+COPY config.json ./
+COPY --from=builder /app/dist ./dist
 COPY public/ ./public/
 
-# Run as non-root user (security best practice)
+# Non-root user (security best practice)
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 USER appuser
 
 EXPOSE 3000
 
-# Health check — verifies the Express server responds
+# Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD wget -qO- http://localhost:3000/ || exit 1
 
-CMD ["node", "server.js"]
+CMD ["node", "dist/server/server/index.js"]
