@@ -401,7 +401,6 @@ export function initSetupPhase(state: AppState) {
       updateDebateStatus(state);
 
       // Initialize TTS
-      state.tts.enabled = true;
       try {
         await startDebateAudio(state);
       } catch (err) {

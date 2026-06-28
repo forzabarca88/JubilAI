@@ -2,6 +2,7 @@
 
 - When modifying existing files, avoid rewriting unless `edit` fails 3+ times.
 - After every change, review whether AGENTS.md needs updating. This file MUST be minimal and considered an index for critical project information only.
+- **Always verify changes with `node test-e2e.mjs`** — runs a full debate flow against the mock server via Playwright.
 
 # Architecture
 
@@ -103,7 +104,7 @@ Collapsible panel in setup phase. 3 custom prompt textareas (`#promptA`, `#promp
 - `useStreaming = false` — `kokoro.stream()` hangs with plain strings; `generate()` used instead
 - Pause/Resume preserves audio queue and pending generations. While paused, incoming text is discarded.
 - `finishDebateAudio` blocks on audio queue drain. In verdict phase, `renderTranscript` is called before TTS flush for responsive UI.
-- Helper exports: `startDebateAudio`, `feedAudioText`, `finishDebateAudio`, `stopDebateAudio`, `pauseDebateAudio`, `resumeDebateAudio`
+- Helper exports: `startDebateAudio` (initializes Kokoro + assigns voices + sets `tts.enabled`), `feedAudioText`, `finishDebateAudio`, `stopDebateAudio`, `pauseDebateAudio`, `resumeDebateAudio`
 
 ## CSS Architecture
 - Dark theme, CSS custom properties in `:root`

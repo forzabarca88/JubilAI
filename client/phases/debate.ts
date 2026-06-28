@@ -8,7 +8,7 @@ import { $, showToast, showPhase, scrollToBottom } from '../dom/helpers';
 import { apiClient } from '../api/client';
 import type { AppState } from '../state/app-state';
 import { startDebateAudio, stopDebateAudio, pauseDebateAudio, resumeDebateAudio, feedAudioText, finishDebateAudio } from '../tts/manager';
-import { startTTSStatusPoll, stopTTSStatusPoll, updateTTSEnableButton } from '../dom/tts-ui';
+import { startTTSStatusPoll, stopTTSStatusPoll, updateTTSEnableButton, toggleTTSEnable, pauseDebateAudioAndUI, resumeDebateAudioAndUI } from '../dom/tts-ui';
 import { renderDebateProgress, updateDebateStatus, showRetryTurn, hideRetryTurn } from '../dom/debate-ui';
 import { runVerdict } from './verdict';
 import { transitionToJudgeSelect } from './judge-select';
@@ -106,7 +106,7 @@ export async function executeNextTurn(state: AppState) {
             contentEl.innerHTML = marked.parse(fullContent);
 
             if (state.tts.enabled) {
-              await finishDebateAudio(activeSpeaker);
+              finishDebateAudio(activeSpeaker);
             }
 
             state.debateData!.messages.push({
@@ -188,4 +188,12 @@ export function initDebatePhase(state: AppState) {
       executeNextTurn(state);
     }
   });
+
+  // TTS controls
+  $('ttsToggle')?.addEventListener('click', () => toggleTTSEnable(state));
+  $('ttsStopBtn')?.addEventListener('click', () => pauseDebateAudioAndUI(state));
+  $('ttsResumeBtn')?.addEventListener('click', () => resumeDebateAudioAndUI(state));
+  $('ttsToggleVerdict')?.addEventListener('click', () => toggleTTSEnable(state));
+  $('ttsStopBtnVerdict')?.addEventListener('click', () => pauseDebateAudioAndUI(state));
+  $('ttsResumeBtnVerdict')?.addEventListener('click', () => resumeDebateAudioAndUI(state));
 }

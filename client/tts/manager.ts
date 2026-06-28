@@ -381,10 +381,12 @@ export class RealtimeTTSManager {
 export const ttsManager = new RealtimeTTSManager();
 
 // Helper functions for UI integration
-export function startDebateAudio(state: AppState) {
-  if (state.tts.enabled) return;
+export async function startDebateAudio(state: AppState) {
+  await ttsManager.initialize();
+  const voices = ttsManager.pickRandomVoices();
+  ttsManager.assignVoices(voices);
+  state.tts.speakerVoices = voices;
   state.tts.enabled = true;
-  return ttsManager.initialize();
 }
 
 export function stopDebateAudio(state: AppState) {
@@ -403,7 +405,7 @@ export async function resumeDebateAudio(state: AppState) {
 }
 
 export function feedAudioText(text: string, speaker: Speaker | 'judge') {
-  if (ttsManager.isInitialized && !ttsManager.isPaused) {
+  if (ttsManager.isInitialized) {
     ttsManager.feedTextChunk(text, speaker);
   }
 }
