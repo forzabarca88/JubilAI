@@ -13,10 +13,50 @@
  *             { type: 'error', id, message }
  *             { type: 'initError', message }
  *
- * NOTE: This worker is compiled separately by esbuild with --format=iife
+ * NOTE: This worker is compiled separately by esbuild with --format=esm
  * because it uses dynamic import() from CDN URLs. Config values are
  * inlined at build time via esbuild --define.
+ *
+ * Cache API polyfill: Kokoro uses the `caches` global to cache phoneme/voice
+ * data between generate() calls. In Web Workers on untrustworthy origins
+ * (HTTP on non-localhost IPs), `caches` is undefined, causing Kokoro to
+ * fall back to network downloads on every call — severe performance hit.
+ * This polyfill provides an in-memory cache as a fallback.
  */
+
+// Cache API polyfill for Web Workers on untrustworthy origins
+if (typeof (self as unknown as Record<string, unknown>).caches === 'undefined') {
+  const _cacheStore = new Map<string, Map<string, { ok: boolean; clone: () => { ok: boolean; arrayBuffer: () => Promise<ArrayBuffer> }; arrayBuffer: () => Promise<ArrayBuffer> }>>();
+
+  (self as unknown as Record<string, unknown>).caches = {
+    async open(name: string) {
+      if (!_cacheStore.has(name)) {
+        _cacheStore.set(name, new Map());
+      }
+      const entries = _cacheStore.get(name)!;
+      return {
+        async match(request: string | { url?: string }) {
+          const key = typeof request === 'string' ? request : (request as { url?: string }).url || '';
+          return entries.get(key);
+        },
+        async put(request: string | { url?: string }, response: { ok: boolean; clone: () => { ok: boolean; arrayBuffer: () => Promise<ArrayBuffer> }; arrayBuffer: () => Promise<ArrayBuffer> }) {
+          const key = typeof request === 'string' ? request : (request as { url?: string }).url || '';
+          entries.set(key, response.clone ? response.clone() : response);
+        },
+        async delete(request: string | { url?: string }) {
+          const key = typeof request === 'string' ? request : (request as { url?: string }).url || '';
+          return entries.delete(key);
+        },
+      };
+    },
+    async delete(name: string) {
+      return _cacheStore.delete(name);
+    },
+    async keys() {
+      return [..._cacheStore.keys()];
+    },
+  };
+}
 
 const config = {
   modelId: TTS_MODEL_ID,

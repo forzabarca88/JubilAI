@@ -53,6 +53,23 @@ interface WorkerGlobalScope {
   postMessage(message: any, transfer?: Transferable[]): void;
 }
 
+// Cache API polyfill (for Web Workers on untrustworthy origins)
+interface CachePolyfill {
+  match(request: Request | string, options?: unknown): Promise<Response | undefined>;
+  put(request: Request | string, response: Response): Promise<void>;
+  delete(request: Request | string, options?: unknown): Promise<boolean>;
+}
+
+interface CachesPolyfill {
+  open(name: string): Promise<CachePolyfill>;
+  delete(name: string): Promise<boolean>;
+  keys(): Promise<string[]>;
+}
+
+interface WorkerGlobalScope {
+  caches: CachesPolyfill | Cache['queryCache'];
+}
+
 // Dynamic import from CDN URLs
 declare module 'https://cdn.jsdelivr.net/npm/kokoro-js@1.2.1/dist/kokoro.web.js' {
   interface KokoroModule {

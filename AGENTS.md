@@ -36,7 +36,7 @@
 - `api/client.ts` — `apiClient` singleton wrapping all `/api/*` fetch calls
 - `session/session-storage.ts` — Encrypted (IndexedDB AES-256-GCM key + localStorage ciphertext) / plaintext fallback (HTTP, no API keys)
 - `tts/manager.ts` — `RealtimeTTSManager` (Web Worker, sentence queue, pipelined playback). Helper exports: `startDebateAudio`, `feedAudioText`, etc. Functions take `state: AppState` param.
-- `tts/worker.ts` — Kokoro via CDN dynamic import, ONNX Runtime Web, `{ type: 'module' }` Worker
+- `tts/worker.ts` — Kokoro via CDN dynamic import, ONNX Runtime Web, `{ type: 'module' }` Worker, Cache API polyfill (in-memory fallback for untrustworthy origins where `caches` is undefined)
 - `phases/setup.ts` — `fetchModelsFor(panel)`, readiness checks, debate creation, TTS init, session restore/save, `resetPrompt`
 - `phases/debate.ts` — Turn execution, SSE streaming, auto-advance, TTS text feeding
 - `phases/judge-select.ts` — `fetchModelsForJudgeSelect()` reads from `*2` DOM elements. Do NOT call `fetchModelsFor('Judge')` here.
@@ -97,6 +97,7 @@ Collapsible panel in setup phase. 3 custom prompt textareas (`#promptA`, `#promp
 ## TTS (`client/tts/manager.ts`, `client/tts/worker.ts`)
 - Kokoro model via Web Worker, WASM inference only (no WebGPU), q4 quantization
 - Worker built as ES module (`--format=esm`) via `scripts/build-tts.js` — dynamic `import()` of Kokoro from CDN requires module format
+- Cache API polyfill in worker: provides in-memory `caches` fallback for untrustworthy origins (HTTP on non-localhost/remote IPs) where the native Cache API is unavailable. Without this, Kokoro's `generate()` falls back to network downloads on every call, causing severe slowdown.
 - Build-time defines injected: `TTS_MODEL_ID`, `TTS_DTYPE`, `TTS_DEVICE` from `config.json`
 - `KokoroTTS` class accessed via import result (`kokoroMod.KokoroTTS`), not as global
 - 28-voice pool (American + British English). 3 random distinct voices assigned per debate
