@@ -8,11 +8,11 @@
 ## Build System (TypeScript + esbuild)
 - **Server**: `tsc -p tsconfig.server.json` → `dist/server/` (Node20 target)
 - **Client**: `esbuild client/index.ts --bundle` → `dist/js/bundle.js` (minified ESM)
-- **TTS Worker**: `esbuild client/tts/worker.ts --bundle --format=iife` → `dist/js/tts-worker.js` (Kokoro loaded from CDN at runtime, ~2kb footprint)
+- **TTS Worker**: `esbuild client/tts/worker.ts --bundle --format=esm` → `dist/js/tts-worker.js` (Kokoro loaded from CDN at runtime, ~1.4kb footprint)
 - `npm run build` runs all three in sequence. All built artifacts go into `dist/` (git-ignored).
 
 ## Dual Server
-- **Real**: `server/index.ts` → `dist/server/index.js` (port 3000) — OpenAI-compatible endpoints
+- **Real**: `server/index.ts` → `dist/server/server/index.js` (port 3000) — OpenAI-compatible endpoints
 - **Mock**: `mock/index.ts` → `dist/server/mock/index.js` (port 3001) — hardcoded content for UI validation
 - Both serve the same `public/` frontend. `npm start` (real) or `npm run mock`.
 - Dev: `tsx watch server/index.ts` or `tsx watch mock/index.ts`
@@ -95,10 +95,14 @@ Collapsible panel in setup phase. 3 custom prompt textareas (`#promptA`, `#promp
 
 ## TTS (`client/tts/manager.ts`, `client/tts/worker.ts`)
 - Kokoro model via Web Worker, WASM inference only (no WebGPU), q4 quantization
+- Worker built as ES module (`--format=esm`) via `scripts/build-tts.js` — dynamic `import()` of Kokoro from CDN requires module format
+- Build-time defines injected: `TTS_MODEL_ID`, `TTS_DTYPE`, `TTS_DEVICE` from `config.json`
+- `KokoroTTS` class accessed via import result (`kokoroMod.KokoroTTS`), not as global
 - 28-voice pool (American + British English). 3 random distinct voices assigned per debate
 - Sentences queued serially; pipelined playback (synthesizes sentence B while A plays)
 - `useStreaming = false` — `kokoro.stream()` hangs with plain strings; `generate()` used instead
 - Pause/Resume preserves audio queue and pending generations. While paused, incoming text is discarded.
+- `finishDebateAudio` blocks on audio queue drain. In verdict phase, `renderTranscript` is called before TTS flush for responsive UI.
 - Helper exports: `startDebateAudio`, `feedAudioText`, `finishDebateAudio`, `stopDebateAudio`, `pauseDebateAudio`, `resumeDebateAudio`
 
 ## CSS Architecture

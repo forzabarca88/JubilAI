@@ -64,12 +64,9 @@ export class RealtimeTTSManager {
   // Voice assignments: speaker key → Kokoro voice ID
   speakerVoices: Record<string, string> = {};
 
-  constructor() {
-    const cfg = getConfig().tts;
-    this.VOICE_POOL = [...cfg.voicePool];
-  }
+  constructor() {}
 
-  private VOICE_POOL: string[];
+  private VOICE_POOL: string[] = [];
 
   /** Create worker and load Kokoro model */
   async initialize(): Promise<void> {
@@ -78,7 +75,12 @@ export class RealtimeTTSManager {
     console.log('[TTS] Initializing Kokoro model in worker...');
 
     try {
-      this.worker = new Worker('js/tts-worker.js', { type: 'module' });
+      const cfg = getConfig().tts;
+      if (this.VOICE_POOL.length === 0) {
+        this.VOICE_POOL = [...cfg.voicePool];
+      }
+
+      this.worker = new Worker('/dist/js/tts-worker.js', { type: 'module' });
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx) throw new Error('AudioContext not supported');
       this.audioContext = new AudioCtx();
@@ -91,8 +93,6 @@ export class RealtimeTTSManager {
 
       this.worker.onmessage = (e: MessageEvent<WorkerMessage>) => this._handleWorkerMessage(e);
       this.worker.onerror = (err: ErrorEvent) => console.error('[TTS] Worker error:', err);
-
-      const cfg = getConfig().tts;
 
       await new Promise<void>((resolve, reject) => {
         const timeout = setTimeout(() => {

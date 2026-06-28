@@ -97,6 +97,9 @@ export async function runVerdict(judgeModel: string, endpointJudge: string, stat
             if (st) st.textContent = 'Debate Complete';
             showToast('Judgment complete!', 'success');
 
+            // Render transcript immediately so UI is responsive
+            renderTranscript(state);
+
             // Flush TTS buffer after UI is updated (non-blocking for user)
             if (state.tts.enabled) {
               await finishDebateAudio('judge');
@@ -108,6 +111,9 @@ export async function runVerdict(judgeModel: string, endpointJudge: string, stat
             showToast('Error: ' + data.error, 'error');
             showRetryVerdict(state);
             stopTTSStatusPoll();
+
+            // Render transcript immediately so UI is responsive
+            renderTranscript(state);
 
             if (state.tts.enabled) { await finishDebateAudio('judge'); }
             break;
@@ -127,6 +133,9 @@ export async function runVerdict(judgeModel: string, endpointJudge: string, stat
     if (st) st.textContent = 'Debate Complete';
     hideRetryVerdict(state);
 
+    // Render transcript immediately so UI is responsive
+    renderTranscript(state);
+
     if (state.tts.enabled) { await finishDebateAudio('judge'); }
     stopTTSStatusPoll();
   } catch (err) {
@@ -134,6 +143,9 @@ export async function runVerdict(judgeModel: string, endpointJudge: string, stat
     showToast('Network error: ' + (err as Error).message, 'error');
     showRetryVerdict(state);
     stopTTSStatusPoll();
+
+    // Render transcript immediately so UI is responsive
+    renderTranscript(state);
 
     if (state.tts.enabled) { await finishDebateAudio('judge'); }
   }

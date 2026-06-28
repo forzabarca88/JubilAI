@@ -8,8 +8,15 @@ import { $ } from './helpers';
 import type { AppState } from '../state/app-state';
 import { ttsManager } from '../tts/manager';
 
-// TTS status poll interval (cached from config)
-const POLL_INTERVAL = getConfig().tts.statusPollIntervalMs;
+// TTS status poll interval — read lazily from config
+let _pollInterval: number | null = null;
+
+function getPollInterval(): number {
+  if (_pollInterval === null) {
+    _pollInterval = getConfig().tts.statusPollIntervalMs;
+  }
+  return _pollInterval;
+}
 
 let ttsStatusInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -116,7 +123,7 @@ export function startTTSStatusPoll(state: AppState) {
     } else {
       stopTTSStatusPoll();
     }
-  }, POLL_INTERVAL);
+  }, getPollInterval());
 }
 
 /** Stop TTS status polling */

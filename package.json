@@ -11,7 +11,7 @@
     "build": "npm run clean && npm run build:server && npm run build:client && npm run build:tts",
     "build:server": "tsc -p tsconfig.server.json",
     "build:client": "esbuild client/index.ts --bundle --outfile=dist/js/bundle.js --minify",
-    "build:tts": "esbuild client/tts/worker.ts --bundle --outfile=dist/js/tts-worker.js --format=iife --minify",
+    "build:tts": "node scripts/build-tts.js",
     "dev:server": "tsx watch server/index.ts",
     "dev:client": "esbuild client/index.ts --bundle --outfile=dist/js/bundle.js --format=esm --watch",
     "dev:mock": "tsx watch mock/index.ts",
@@ -19,17 +19,19 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "cors": "^2.8.5",
     "express": "^4.21.0",
     "openai": "^4.70.0",
-    "cors": "^2.8.5",
     "uuid": "^10.0.0"
   },
   "devDependencies": {
-    "typescript": "^5.7.0",
-    "esbuild": "^0.24.0",
-    "tsx": "^4.19.0",
-    "@types/express": "^5.0.0",
     "@types/cors": "^2.8.17",
-    "@types/uuid": "^10.0.0"
+    "@types/express": "^5.0.0",
+    "@types/uuid": "^10.0.0",
+    "esbuild": "^0.24.0",
+    "jsdom": "^29.1.1",
+    "playwright": "^1.61.1",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
   }
 }

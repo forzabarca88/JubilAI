@@ -20,11 +20,11 @@ export function createApp(): Express {
   });
 
   app.use(express.static('public'));
-  app.use(express.static('dist'));
+  app.use('/dist', express.static('dist'));
 
   // Serve config.json to the frontend
   app.get('/config.json', (req, res) => {
-    res.sendFile(path.join(__dirname, '../config.json'));
+    res.sendFile(path.join(__dirname, '../../../config.json'));
   });
 
   // Mount API routes

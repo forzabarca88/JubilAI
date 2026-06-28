@@ -81,7 +81,7 @@ self.onmessage = async (e: MessageEvent<WorkerInMessage>) => {
       const finalDevice = device || config.device;
       const finalDtype = dtype || config.dtype;
 
-      kokoro = await KokoroTTS.from_pretrained(modelId || config.modelId, {
+      kokoro = await kokoroMod.KokoroTTS.from_pretrained(modelId || config.modelId, {
         dtype: finalDtype,
         device: finalDevice,
       });
