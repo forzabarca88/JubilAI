@@ -1,0 +1,27 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ES2020",
+    "lib": ["DOM", "ES2020"],
+    "outDir": "dist/js",
+    "rootDir": ".",
+    "moduleResolution": "Bundler",
+    "types": []
+  },
+  "include": [
+    "client/**/*.ts",
+    "client/global.d.ts",
+    "shared/**/*.ts"
+  ],
+  "exclude": [
+    "server/**/*.ts",
+    "mock/**/*.ts",
+    "src/**/*.ts",
+    "mock/src/**/*.ts",
+    "shared/utils/config.ts",
+    "shared/utils/prompts.ts",
+    "node_modules",
+    "dist"
+  ]
+}

@@ -2,18 +2,37 @@
   "name": "llm-debate",
   "version": "1.0.0",
   "description": "LLM Debate Arena - Two models debate, a third judges",
-  "main": "server.js",
+  "main": "dist/server/index.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js",
-    "mock": "node mock-server.js",
-    "validate": "node mock-server.js",
-    "build": "docker build -t jubilai ."
+    "start": "node dist/server/server/index.js",
+    "dev": "npm run build && node dist/server/server/index.js",
+    "mock": "node dist/server/mock/index.js",
+    "validate": "npm run build && node dist/server/mock/index.js",
+    "build": "npm run clean && npm run build:server && npm run build:client && npm run build:tts",
+    "build:server": "tsc -p tsconfig.server.json",
+    "build:client": "esbuild client/index.ts --bundle --outfile=dist/js/bundle.js --minify",
+    "build:tts": "node scripts/build-tts.js",
+    "dev:server": "tsx watch server/index.ts",
+    "dev:client": "esbuild client/index.ts --bundle --outfile=dist/js/bundle.js --format=esm --watch",
+    "dev:mock": "tsx watch mock/index.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.server.json && tsc --noEmit -p tsconfig.client.json",
+    "clean": "rm -rf dist",
+    "build:docker": "docker build -t jubilai ."
   },
   "dependencies": {
+    "cors": "^2.8.5",
     "express": "^4.21.0",
     "openai": "^4.70.0",
-    "cors": "^2.8.5",
     "uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/uuid": "^10.0.0",
+    "esbuild": "^0.24.0",
+    "jsdom": "^29.1.1",
+    "playwright": "^1.61.1",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
   }
 }

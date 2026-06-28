@@ -1,34 +1,78 @@
 # Core Guidelines
 
 - When modifying existing files, avoid rewriting unless `edit` fails 3+ times.
-- After every change, review whether AGENTS.md needs updating. This file MUST be minimal and considered an index for critical project information only. 
+- After every change, review whether AGENTS.md needs updating. This file MUST be minimal and considered an index for critical project information only.
+- **Always verify changes with `node test-e2e.mjs`** — runs a full debate flow against the mock server via Playwright.
 
 # Architecture
 
+## Build System (TypeScript + esbuild)
+- **Server**: `tsc -p tsconfig.server.json` → `dist/server/` (Node20 target)
+- **Client**: `esbuild client/index.ts --bundle` → `dist/js/bundle.js` (minified ESM)
+- **TTS Worker**: `esbuild client/tts/worker.ts --bundle --format=esm` → `dist/js/tts-worker.js` (Kokoro loaded from CDN at runtime, ~1.4kb footprint)
+- `npm run build` runs all three in sequence. All built artifacts go into `dist/` (git-ignored).
+
 ## Dual Server
-- **Real**: `server.js` (port 3000) — connects to OpenAI-compatible endpoints
-- **Mock**: `mock-server.js` (port 3001) — hardcoded content for UI validation
-- Both serve the same `public/` frontend. Mock routes in `mock/src/`, real in `src/`.
-- `npm start` (real) or `npm run mock`.
+- **Real**: `server/index.ts` → `dist/server/server/index.js` (port 3000) — OpenAI-compatible endpoints
+- **Mock**: `mock/index.ts` → `dist/server/mock/index.js` (port 3001) — hardcoded content for UI validation
+- Both serve the same `public/` frontend. `npm start` (real) or `npm run mock`.
+- Dev: `tsx watch server/index.ts` or `tsx watch mock/index.ts`
 
-## Frontend Module Load Order (`public/index.html`)
-1. `js/state.js` — `appState` (models, debate data, turn counts, streaming, TTS state, `advancedSettings`, `sessionRestored`)
-2. `js/dom-helpers.js` — `$()` null-guard helper, `showPhase()`, `showToast()`, scroll helpers
-3. `js/api.js` — `appApi` wrapping all `/api/*` fetch calls
-4. `js/session-storage.js` — `appSession` for encrypted session persistence (IndexedDB key + localStorage ciphertext, AES-256-GCM; plaintext fallback for HTTP)
-5. `js/tts-manager.js` — `RealtimeTTSManager` using kokoro-js via Web Worker (WASM inference, serial sentence queue, pipelined playback)
-6. `js/phases/setup.js` — `fetchModelsFor(panel)`, readiness checks, debate creation, TTS init, session restore/save
-7. `js/phases/debate.js` — Turn execution, streaming display, auto-advance, TTS text feeding
-8. `js/phases/judge-select.js` — `fetchModelsForJudgeSelect()` reads from `*2` DOM elements. Do NOT call `fetchModelsFor('Judge')` here — that reads setup-phase elements which are hidden/empty.
-9. `js/phases/verdict.js` — Verdict streaming, transcript, markdown export, TTS for judge voice
-10. `js/app.js` — `resetToSetup()` clears all state/DOM, resets `sessionRestored` flag
+## Source Directories
+- `client/` — TypeScript frontend modules, bundled by esbuild into single `bundle.js`
+- `server/` — TypeScript Express server (real, connects to LLM endpoints)
+- `mock/` — TypeScript mock server (hardcoded responses for UI testing)
+- `shared/` — Shared types (`types/`) and utilities (`utils/`, `middleware/`)
+- `public/` — Committed static source: `index.html`, `css/`
+- `dist/` — Build output: `server/` (compiled TS), `js/` (esbuild bundles), git-ignored
 
-Inline `<script>` block in `index.html` defines: `toggleTTSEnable()`, `pauseDebateAudioAndUI()`, `resumeDebateAudioAndUI()`, `updateTTSEnableButton()`, `toggleAdvancedSettings()`, `resetPrompt()`, `gatherAdvancedSettings()`, `DEFAULT_PROMPTS`, and `DOMContentLoaded` init.
+## Client Modules (`client/`)
+- `index.ts` — Entry point; imports all modules, calls `loadConfig()`, initializes phases
+- `config.ts` — Reads `config.json`, exposes `loadConfig()` + `getConfig()`
+- `state/app-state.ts` — `appState` singleton (models, debate data, turn counts, TTS state, `advancedSettings`, `sessionRestored`)
+- `dom/helpers.ts` — `$()` null-guard, `showPhase()`, `showToast()`, scroll helpers
+- `dom/tts-ui.ts` — `updateTTSEnableButton()`, TTS status polling (takes `state: AppState` param)
+- `dom/debate-ui.ts` — `renderDebateProgress`, `updateDebateStatus`, `showRetryTurn`, `hideRetryTurn` (extracted to break circular dependency)
+- `api/client.ts` — `apiClient` singleton wrapping all `/api/*` fetch calls
+- `session/session-storage.ts` — Encrypted (IndexedDB AES-256-GCM key + localStorage ciphertext) / plaintext fallback (HTTP, no API keys)
+- `tts/manager.ts` — `RealtimeTTSManager` (Web Worker, sentence queue, pipelined playback). Helper exports: `startDebateAudio`, `feedAudioText`, etc. Functions take `state: AppState` param.
+- `tts/worker.ts` — Kokoro via CDN dynamic import, ONNX Runtime Web, `{ type: 'module' }` Worker, Cache API polyfill (in-memory fallback for untrustworthy origins where `caches` is undefined)
+- `phases/setup.ts` — `fetchModelsFor(panel)`, readiness checks, debate creation, TTS init, session restore/save, `resetPrompt`
+- `phases/debate.ts` — Turn execution, SSE streaming, auto-advance, TTS text feeding
+- `phases/judge-select.ts` — `fetchModelsForJudgeSelect()` reads from `*2` DOM elements. Do NOT call `fetchModelsFor('Judge')` here.
+- `phases/verdict.ts` — Verdict streaming, winner parsing, transcript, markdown export, TTS for judge voice
+- `app.ts` — `resetToSetup()` clears all state/DOM, resets `sessionRestored` flag, destroys TTS
+- `global.d.ts` — Type declarations for `marked` (CDN), `KokoroTTS`, build-time defines, Worker augmentations
+
+## Server Modules (`server/`)
+- `index.ts` — App creation, config loading, CORS, routes mounted at `/api/*`, graceful shutdown
+- `app.ts` — `createApp(config)` factory, COOP+COEP headers, static `public/` serving
+- `routes/debates.ts` — `POST /api/debate`, `GET /api/debate/:id`, `DELETE /api/debate/:id`
+- `routes/models.ts` — `GET /api/models?url=...` with retry
+- `routes/turns.ts` — `POST /api/debate/:id/next-turn` (SSE streaming, auto-advance/judge)
+- `routes/verdicts.ts` — `POST /api/debate/:id/verdict` (judge SSE), `POST /api/debate/:id/judge`
+- `utils/openai-client.ts` — `createClient(apiUrl, apiKey)` appends `/v1`, `withRetry(fn)` (1 retry, 5s)
+- `utils/prompts.ts` — Re-exports from `shared/utils/prompts.ts`
+
+## Shared Modules (`shared/`)
+- `types/config.ts` — Interfaces for all config sections
+- `types/debate.ts` — `Debate`, `DebateCreateBody`, `DebateMessage`, `Speaker`, etc.
+- `types/api.ts` — `ModelInfo`, SSE event types
+- `types/sse.ts` — `SSEChunkEvent`, `SSDoneEvent` (includes `error` property), `SSEErrorEvent`, `SSEEvent` union
+- `utils/streaming.ts` — `setupSSE`, `sendChunk`, `sendDone`, `sendError`, `streamText`, `flushSSE`
+- `utils/prompts.ts` — `getAffirmativePrompt`, `getNegativePrompt`, `getJudgePrompt`, `getSpeakerPrompt`
+- `middleware/debates.ts` — `debates` Map (keyed by UUID), `findDebate` Express middleware
+
+## Mock Server (`mock/`)
+- `index.ts` — Express on port 3001, CORS, JSON parsing
+- `app.ts` — `createMockApp()` factory, COOP+COEP headers, static `public/`
+- `routes/` — Mirrors real server routes with hardcoded responses
+- `data/mock-data.ts` — `MOCK_MODELS` (6 fake models), `MOCK_DEBATE_CONTENT` (3 turns/side + verdict, always Negative wins)
 
 ## SSE Streaming Protocol
-All streaming endpoints use Server-Sent Events (`src/utils/streaming.js`):
+All streaming endpoints use Server-Sent Events (`shared/utils/streaming.ts`):
 - `data: { type: 'chunk', content: '...' }` — text delta
-- `data: { type: 'done', ... }` — stream complete; fields: `debateComplete`, `nextSpeaker`, `winner`, `verdict`, `countA`, `countB`, `autoJudge`
+- `data: { type: 'done', ... }` — stream complete; fields: `debateComplete`, `nextSpeaker`, `winner`, `verdict`, `countA`, `countB`, `autoJudge`, `error`
 - `data: { type: 'error', error: '...' }` — error
 Frontend reads via `res.body.getReader()` + `TextDecoder`, parses `data: ` lines, renders with `marked.parse()`.
 
@@ -39,34 +83,29 @@ Frontend reads via `res.body.getReader()` + `TextDecoder`, parses `data: ` lines
 - **judging**: Auto-transitioned (if judge pre-configured) or triggered from judge-select.
 - **complete**: Winner parsed from `Winner: Side [AB]` in verdict text. Retryable via `btnRetryVerdict`.
 
-## OpenAI Client (`src/utils/openai-client.js`)
-- `createClient(apiUrl, apiKey)` — appends `/v1`, defaults API key to `'ollama'`
-- `withRetry(fn)` — retries once after 5s delay
-
-## In-Memory Storage (`src/middleware/debates.js`)
-Debates stored in a `Map` keyed by UUID. Lost on restart.
-
-## Session Persistence (`js/session-storage.js`)
+## Session Persistence (`client/session/session-storage.ts`)
 - **Encrypted** (HTTPS/localhost): IndexedDB stores AES-256-GCM key; localStorage stores base64-encoded `IV || ciphertext` under `jubilai_session`
 - **Plaintext fallback** (HTTP): stores non-sensitive config under `jubilai_session_plain`. API keys **never** stored in plaintext.
 - Auto-restore on init, auto-save after debate creation. All failures silent.
 
-## System Prompts (`src/utils/prompts.js`)
-`SYSTEM_PROMPT_TRUE`, `SYSTEM_PROMPT_FALSE`, `SYSTEM_PROMPT_JUDGE`. Require prose format, penalize lists/repetition. Frontend mirrors these in `DEFAULT_PROMPTS` (inline script in `index.html`).
+## System Prompts (`shared/utils/prompts.ts`)
+`getAffirmativePrompt`, `getNegativePrompt`, `getJudgePrompt`. Require prose format, penalize lists/repetition. Server re-exports via `server/utils/prompts.ts`.
 
 ## Advanced Settings
 Collapsible panel in setup phase. 3 custom prompt textareas (`#promptA`, `#promptB`, `#promptJudge`) + debater params (`temperature` default `0.7`, `topP`, `topK`, `maxTokens`) + judge params (`judgeTemperature` default `0.5`, `judgeTopP`, `judgeTopK`, `judgeMaxTokens`). Server stores as `debate.customPromptA/B/Judge` and `debate.temperature/topP/topK/maxTokens` / `debate.judgeTemperature/topP/topK/maxTokens` (null when unset). `resetToSetup()` clears all.
 
-## TTS (`js/tts-manager.js`, `js/tts-worker.js`)
+## TTS (`client/tts/manager.ts`, `client/tts/worker.ts`)
 - Kokoro model via Web Worker, WASM inference only (no WebGPU), q4 quantization
+- Worker built as ES module (`--format=esm`) via `scripts/build-tts.js` — dynamic `import()` of Kokoro from CDN requires module format
+- Cache API polyfill in worker: provides in-memory `caches` fallback for untrustworthy origins (HTTP on non-localhost/remote IPs) where the native Cache API is unavailable. Without this, Kokoro's `generate()` falls back to network downloads on every call, causing severe slowdown.
+- Build-time defines injected: `TTS_MODEL_ID`, `TTS_DTYPE`, `TTS_DEVICE` from `config.json`
+- `KokoroTTS` class accessed via import result (`kokoroMod.KokoroTTS`), not as global
 - 28-voice pool (American + British English). 3 random distinct voices assigned per debate
 - Sentences queued serially; pipelined playback (synthesizes sentence B while A plays)
 - `useStreaming = false` — `kokoro.stream()` hangs with plain strings; `generate()` used instead
 - Pause/Resume preserves audio queue and pending generations. While paused, incoming text is discarded.
-- Global functions: `startDebateAudio()`, `feedAudioText()`, `finishDebateAudio()`, `stopDebateAudio()`, `pauseDebateAudio()`, `resumeDebateAudio()`
-
-## Mock Server (`mock/src/utils/mock-data.js`)
-`MOCK_MODELS`: 6 fake models. `MOCK_DEBATE_CONTENT`: 3 turns each side + verdict (always Negative wins).
+- `finishDebateAudio` blocks on audio queue drain. In verdict phase, `renderTranscript` is called before TTS flush for responsive UI.
+- Helper exports: `startDebateAudio` (initializes Kokoro + assigns voices + sets `tts.enabled`), `feedAudioText`, `finishDebateAudio`, `stopDebateAudio`, `pauseDebateAudio`, `resumeDebateAudio`
 
 ## CSS Architecture
 - Dark theme, CSS custom properties in `:root`
