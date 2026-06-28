@@ -42,3 +42,15 @@ out/
 .DS_Store
 .vscode/
 .idea/
+
+# TypeScript and JavaScript generated files
+*.d.ts
+*.js.map
+*.min.js
+
+# Docker related files (runtime configs, overrides, and local builds)
+.docker/
+Dockerfile.dev
+Dockerfile.prod
+docker-compose.override.yml
+docker-compose.*.yml
