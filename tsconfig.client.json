@@ -11,6 +11,7 @@
   },
   "include": [
     "client/**/*.ts",
+    "client/global.d.ts",
     "shared/**/*.ts"
   ],
   "exclude": [

@@ -9,7 +9,10 @@ import { apiClient } from '../api/client';
 import type { AppState } from '../state/app-state';
 import { startDebateAudio, stopDebateAudio, pauseDebateAudio, resumeDebateAudio, feedAudioText, finishDebateAudio } from '../tts/manager';
 import { startTTSStatusPoll, stopTTSStatusPoll, updateTTSEnableButton } from '../dom/tts-ui';
-import { renderDebateProgress, updateDebateStatus, showRetryTurn, hideRetryTurn } from './setup';
+import { renderDebateProgress, updateDebateStatus, showRetryTurn, hideRetryTurn } from '../dom/debate-ui';
+import { runVerdict } from './verdict';
+import { transitionToJudgeSelect } from './judge-select';
+import { resetToSetup } from '../app';
 
 /** Execute a single debate turn with streaming */
 export async function executeNextTurn(state: AppState) {
@@ -44,7 +47,7 @@ export async function executeNextTurn(state: AppState) {
   `;
   const stream = $('debateStream');
   if (stream) stream.appendChild(msgDiv);
-  const contentEl = msgDiv.querySelector('.message-content')!;
+  const contentEl = msgDiv.querySelector('.message-content')! as HTMLElement;
 
   let fullContent = '';
 

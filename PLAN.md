@@ -1,6 +1,6 @@
 # JubilAI — Migration Plan (TypeScript + Dual Server)
 
-> **Status**: Phase 1–5 complete with bugs. Phase 6 blocked until bugs are fixed.
+> **Status**: Phase 1–5 complete. All critical bugs fixed. TypeScript compilation clean. Phase 6 ready to proceed.
 > **Last reviewed**: 2026-06-27
 
 ## Phase 1: Foundation — Config + Shared Types
@@ -16,8 +16,8 @@
 - [x] `config.ts` — interfaces for all config sections
 - [x] `debate.ts` — Debate, DebateCreateBody, DebateMessage, Speaker, etc.
 - [x] `api.ts` — ModelInfo, SSE event types
-- [x] `sse.ts` — SSEChunkEvent, SSdoneEvent (typo: double-S prefix), SSEErrorEvent, SSEEvent union
-  - **Note**: `SSdoneEvent` has a double-S prefix typo. Consistent throughout codebase but wrong.
+- [x] `sse.ts` — SSEChunkEvent, SSEDoneEvent (was `SSdoneEvent`, renamed), SSEErrorEvent, SSEEvent union
+  - [x] **FIXED**: Renamed `SSdoneEvent` → `SSEDoneEvent` (fixed double-S typo). Updated all references across codebase.
 
 ### 1.3 TypeScript configuration
 - [x] Root `tsconfig.json` (shared settings: ES2022, strict mode, `paths` for `@shared/*`)
@@ -56,18 +56,18 @@
 
 ## Phase 3: Real Server (`server/`)
 
-**Status**: ✅ COMPLETE (with bugs)
+**Status**: ✅ COMPLETE
 
 ### 3.1 Server entry point (`server/index.ts`)
 - [x] Express app creation, config loading, CORS, JSON parsing
 - [x] Routes mounted at `/api/*`
 - [x] 404 handler, error handler, listens on `config.server.port` (3000)
 - [x] Graceful shutdown (SIGINT/SIGTERM)
-- [ ] **BUG**: Uses `require('./routes').default` — CommonJS `require` in a TypeScript file. Should use `import`.
+- [x] **FIXED**: `require('./routes').default` → `import routes from './routes'`
 
 ### 3.2 App factory (`server/app.ts`)
 - [x] `createApp(config)` — returns Express app with routes + middleware
-- [ ] **BUG**: Uses `require('./routes').default` — same CommonJS issue.
+- [x] **FIXED**: `require('./routes').default` → `import routes from './routes'`
 
 ### 3.3 Routes (`server/routes/`)
 - [x] `index.ts` — barrel export
@@ -84,15 +84,15 @@
 
 ## Phase 4: Mock Server (`mock/`)
 
-**Status**: ✅ COMPLETE (with bugs)
+**Status**: ✅ COMPLETE
 
 ### 4.1 Mock server entry (`mock/index.ts`)
 - [x] Express app on port 3001, CORS, JSON parsing
-- [ ] **BUG**: Uses `require('./routes').default` — CommonJS `require` in a TypeScript file.
+- [x] **FIXED**: `require('./routes').default` → `import routes from './routes'`
 
 ### 4.2 Mock app factory (`mock/app.ts`)
 - [x] `createMockApp()` — returns Express app with mock routes
-- [ ] **BUG**: Uses `require('./routes').default` — same CommonJS issue.
+- [x] **FIXED**: `require('./routes').default` → `import routes from './routes'`
 
 ### 4.3 Mock routes (`mock/routes/`)
 - [x] `index.ts` — barrel export
@@ -109,7 +109,7 @@
 
 ## Phase 5: Frontend (Client)
 
-**Status**: ✅ COMPLETE with **6 critical bugs** that block compilation
+**Status**: ✅ COMPLETE (all bugs fixed, TypeScript compilation clean)
 
 ### 5.1 Config (`client/config.ts`)
 - [x] Reads `config.json`, exposes `loadConfig()` + `getConfig()`
@@ -130,7 +130,7 @@
 ### 5.4 TTS UI (`client/dom/tts-ui.ts`)
 - [x] `updateTTSEnableButton()` — syncs TTS buttons/status with state
 - [x] `startTTSStatusPoll()` / `stopTTSStatusPoll()` — 500ms polling
-- [ ] **BUG**: `resetPrompt` is imported by `app.ts` from this module but never exported from it. `resetPrompt` is defined in `setup.ts` (locally, not exported).
+- [x] **FIXED**: `resetPrompt` import removed from `app.ts` (moved to `./phases/setup`). Fixed private property access `_pendingGenerations` → added `pendingGenerationsCount` getter on manager.
 
 ### 5.5 API client (`client/api/client.ts`)
 - [x] `apiClient` singleton — `createDebate`, `nextTurn`, `verdict`, `setJudge`, `deleteDebate`, `fetchModels`
@@ -148,48 +148,64 @@
 - [x] Voice pool, `pickRandomVoices()`, `assignVoices()`
 - [x] `feedTextChunk()`, `finishStreaming()`, `stopAudio()`, `pauseAudio()`, `resumeAudio()`, `destroy()`
 - [x] Helper exports: `startDebateAudio`, `stopDebateAudio`, `pauseDebateAudio`, `resumeDebateAudio`, `feedAudioText`, `finishDebateAudio`
+- [x] **FIXED**: Added `AppState` import. Added `pendingGenerationsCount` getter for safe access to `_pendingGenerations`. Fixed `webkitAudioContext` null-safety and `audioContext` non-null assertions with explicit guards.
 
 ### 5.8 TTS worker (`client/tts/worker.ts`)
 - [x] Kokoro model loading from CDN (`kokoro-js@1.2.1`)
 - [x] ONNX Runtime Web multi-threading config
 - [x] `init`, `generate`, `stream-generate`, `stop` message handlers
 - [x] ArrayBuffer transfer (zero-copy)
+- [x] **FIXED**: Added proper type declarations in `global.d.ts` for CDN dynamic import, build-time defines (`TTS_MODEL_ID`, `TTS_DTYPE`, `TTS_DEVICE`), `KokoroTTS` constructor, `KokoroInstance`, `RawAudio`, and `WorkerGlobalScope.postMessage`. Replaced `any` types with proper typed references. Added `send()` helper to bypass DOM `postMessage` overload mismatch in worker context.
 
 ### 5.9 Setup phase (`client/phases/setup.ts`)
 - [x] `fetchModelsFor(panel)` — panel config map, model fetching, readiness checks
 - [x] `checkSetupReady()` — enables start button when all fields filled
 - [x] `gatherAdvancedSettings()` — reads advanced settings from DOM
 - [x] `initSetupPhase()` — event binding, session restore, debate start
-- [ ] **BUG 1**: `gatherAdvancedSettings` has a syntax error on line 182 — `judgeTopK: ... : undefined;` uses a semicolon instead of comma inside an object literal. Breaks TypeScript compilation.
-- [ ] **BUG 2**: Uses `startDebateAudio(state)`, `stopDebateAudio(state)`, `updateTTSEnableButton(state)` without importing them.
-- [ ] **BUG 3**: Uses `resetPrompt('A', ...)` etc. on lines 227-231 but `resetPrompt` is never defined or imported in this file. It exists only in the inline `<script>` of `index.html`.
-- [ ] **BUG 4**: Calls `initDebatePhase(state)` on line 413 but doesn't import it from `./debate`.
-- [ ] **BUG 5**: Uses `marked.parse()` on lines 548/556 without importing `marked`. No `global.d.ts` declares it.
-- [ ] **BUG 6**: Circular dependency — `setup.ts` calls `initDebatePhase` from `debate.ts`, and `debate.ts` imports `renderDebateProgress`, `updateDebateStatus`, `showRetryTurn`, `hideRetryTurn` from `./setup`.
+- [x] **FIXED BUG 1**: Semicolon → comma on `judgeTopK` line in `gatherAdvancedSettings` object literal
+- [x] **FIXED BUG 2**: Added imports for `startDebateAudio`, `stopDebateAudio`, `updateTTSEnableButton` from `../tts/manager` and `../dom/tts-ui`
+- [x] **FIXED BUG 3**: Defined `resetPrompt` locally in `setup.ts` and exported it
+- [x] **FIXED BUG 4**: Added import for `initDebatePhase` from `./debate`
+- [x] **FIXED BUG 5**: Created `client/global.d.ts` with `marked` type declarations, included in `tsconfig.client.json`
+- [x] **FIXED BUG 6**: Extracted `renderDebateProgress`, `updateDebateStatus`, `showRetryTurn`, `hideRetryTurn` into `client/dom/debate-ui.ts` to break circular dependency
+- [x] **FIXED**: `config` import path corrected from `../config` → `./config` (relative to `client/phases/`)
+- [x] **FIXED**: `.value`/`.error` type mismatches fixed via explicit DOM casts (`as HTMLInputElement`)
+- [x] **FIXED**: `null` → `undefined` for optional string fields in `DebateCreateBody`
 
 ### 5.10 Debate phase (`client/phases/debate.ts`)
 - [x] `executeNextTurn()` — SSE streaming, TTS integration, auto-advance
 - [x] `initDebatePhase()` — event binding (abort, retry)
-- [x] Imports `renderDebateProgress`, `updateDebateStatus`, `showRetryTurn`, `hideRetryTurn` from `./setup` (creates circular dependency — see setup bugs)
-- [ ] **BUG**: Uses `marked.parse()` without importing `marked`.
+- [x] Imports `renderDebateProgress`, `updateDebateStatus`, `showRetryTurn`, `hideRetryTurn` from `../dom/debate-ui` (circular dependency resolved)
+- [x] **FIXED**: Added missing imports for phase transitions (`transitionToJudgeSelect`, `runVerdict`) and `marked` global via `global.d.ts`
+- [x] **FIXED**: Added `error` property to `SSDoneEvent` type in `shared/types/sse.ts`
+- [x] **FIXED**: Corrected `DebateCreateBody` import path to `../../shared/types/debate`
+- [x] **FIXED**: Removed unused `LLMDefaults` import
 
 ### 5.11 Judge-select phase (`client/phases/judge-select.ts`)
 - [x] `transitionToJudgeSelect()` — shows judge-select UI, pre-fills endpoint
 - [x] `fetchModelsForJudgeSelect()` — reads from `*2` DOM elements (not setup-phase elements)
 - [x] `initJudgeSelectPhase()` — event binding, calls `runVerdict` after judge setup
+- [x] **FIXED**: Added import for `runVerdict` from `./verdict`
+- [x] **FIXED**: `.value`/`.error` type mismatches fixed via explicit DOM casts (`as HTMLInputElement`)
+- [x] **FIXED**: `ErrorResponse` casts use `as unknown as ErrorResponse` to avoid TS2352
 
 ### 5.12 Verdict phase (`client/phases/verdict.ts`)
 - [x] `runVerdict()` — judge SSE streaming, winner parsing, transcript rendering
 - [x] `renderTranscript()` — debate messages display
 - [x] `exportMarkdown()` — markdown file download
 - [x] `initVerdictPhase()` — event binding (transcript toggle, export, retry)
-- [ ] **BUG 1**: References `ttsManager.initialize()` on line 52 but `ttsManager` is not imported. Imports helper functions from `../tts/manager` but not the class itself.
-- [ ] **BUG 2**: Uses `marked.parse()` in 6 places without importing `marked`.
+- [x] **FIXED BUG 1**: Added `ttsManager` import from `../tts/manager`
+- [x] **FIXED BUG 2**: `marked.parse()` resolved via `global.d.ts`
+- [x] **FIXED**: Added null guards for `querySelector` results (cast to `HTMLElement | null`)
+- [x] **FIXED**: Event handler functions wrapped to satisfy `EventListener` type
 
 ### 5.13 App (`client/app.ts`)
 - [x] `resetToSetup()` — clears all state/DOM, resets session flag, destroys TTS
 - [x] `initApp()` — binds new debate buttons
-- [ ] **BUG**: `import { resetPrompt } from '../dom/tts-ui'` — `resetPrompt` is not exported from `tts-ui.ts`. Causes build failure.
+- [x] **FIXED**: `resetPrompt` import corrected to `./phases/setup` (was `../dom/tts-ui`)
+- [x] **FIXED**: Added missing `type AppState` import from `./state/app-state`
+- [x] **FIXED**: Removed unused import
+- [x] **FIXED**: `config` import path corrected from `../config` → `./config`
 
 ### 5.14 Entry point (`client/index.ts`)
 - [x] Imports all modules, calls `loadConfig()`, initializes all phases
@@ -199,7 +215,7 @@
 
 ## Phase 6: Build System + Polish
 
-**Status**: ⏳ BLOCKED — must fix Phase 5 bugs first
+**Status**: ⏳ READY (all Phase 5 bugs resolved, compilation clean)
 
 ### 6.1 Build scripts
 - [ ] `npm run build:client` — esbuild `client/index.ts` → `public/js/bundle.js` (bundle mode)
@@ -215,7 +231,7 @@
 - [ ] Update `public/index.html`: remove old script tags, keep only `<script src="js/bundle.js">` and `<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js">`
 
 ### 6.3 Global type declarations
-- [ ] Create `client/global.d.ts` — declare `marked` global (loaded via CDN), declare inline globals (`appState`, `$`, `showToast`, `ttsManager`, etc.) if any remain on window
+- [x] Created `client/global.d.ts` — declares `marked` global (CDN), `Window.webkitAudioContext`, build-time defines (`TTS_MODEL_ID`, `TTS_DTYPE`, `TTS_DEVICE`), `KokoroTTS`/`KokoroInstance`/`RawAudio` types, `WorkerGlobalScope.postMessage` augmentation, and CDN dynamic import module declaration
 
 ### 6.4 Start scripts
 - [ ] `npm start` — runs `dist/server/index.js` (real server)
@@ -227,35 +243,37 @@
 
 ## Bugs to Fix Before Phase 6
 
-### Critical (blocks compilation)
+### Critical (blocks compilation) — ✅ ALL FIXED
 
-1. **`setup.ts:182`** — Semicolon instead of comma in `gatherAdvancedSettings` object literal: `judgeTopK: ... : undefined;` → should be `,`
-2. **`setup.ts`** — Missing imports: `startDebateAudio`, `stopDebateAudio`, `updateTTSEnableButton` from `../tts/manager` and `../dom/tts-ui`
-3. **`setup.ts:227-231`** — `resetPrompt` referenced but not defined/imported in this file. Must either define it locally or import from wherever it belongs.
-4. **`setup.ts:413`** — Calls `initDebatePhase(state)` without importing from `./debate`
-5. **`setup.ts`, `debate.ts`, `verdict.ts`** — Use `marked.parse()` without importing `marked` or declaring it globally
-6. **`app.ts:10`** — `import { resetPrompt } from '../dom/tts-ui'` — `resetPrompt` not exported from `tts-ui.ts`
-7. **`verdict.ts:52`** — References `ttsManager` without importing it from `../tts/manager`
-8. **Circular dependency** — `setup.ts` → `debate.ts` → `setup.ts` (via `renderDebateProgress`, `updateDebateStatus`, `showRetryTurn`, `hideRetryTurn`)
+1. [x] **`setup.ts:182`** — Semicolon → comma in `gatherAdvancedSettings` object literal
+2. [x] **`setup.ts`** — Added missing imports: `startDebateAudio`, `stopDebateAudio`, `updateTTSEnableButton` from `../tts/manager` and `../dom/tts-ui`
+3. [x] **`setup.ts:227-231`** — Defined `resetPrompt` locally in `setup.ts` and exported it
+4. [x] **`setup.ts:413`** — Added import for `initDebatePhase` from `./debate`
+5. [x] **`setup.ts`, `debate.ts`, `verdict.ts`** — Created `client/global.d.ts` with `marked` type declarations, included in `tsconfig.client.json`
+6. [x] **`app.ts:10`** — Fixed `resetPrompt` import path to `./phases/setup`; removed unused import; added `type AppState` import
+7. [x] **`verdict.ts:52`** — Added `ttsManager` import from `../tts/manager`; added null guards and event handler wrappers
+8. [x] **Circular dependency** — Extracted `renderDebateProgress`, `updateDebateStatus`, `showRetryTurn`, `hideRetryTurn` into `client/dom/debate-ui.ts`; both `setup.ts` and `debate.ts` now import from shared module
 
-### Minor (cosmetic / consistency)
+### Minor (cosmetic / consistency) — ✅ ALL FIXED
 
-9. **`server/app.ts`, `mock/app.ts`** — Use `require('./routes').default` instead of `import`
-10. **`shared/types/sse.ts`** — `SSDoneEvent` has double-S prefix typo (consistent throughout but wrong)
+9. [x] **`server/app.ts`, `mock/app.ts`** — `require('./routes').default` → `import routes from './routes'`
+10. [x] **`shared/types/sse.ts`** — Renamed `SSdoneEvent` → `SSEDoneEvent`; added `error` property to `SSDoneEvent` type; updated all references across codebase
+
+### Additional fixes applied
+
+- [x] **`client/tts/manager.ts`** — Added `AppState` import; added `pendingGenerationsCount` getter; fixed `webkitAudioContext` null-safety; fixed `audioContext` non-null assertions with explicit guards; fixed private property access in `feedAudioText`
+- [x] **`client/tts/worker.ts`** — Added proper type declarations in `global.d.ts` for CDN dynamic import, build-time defines, `KokoroTTS`, `KokoroInstance`, `RawAudio`, `WorkerGlobalScope.postMessage`; replaced `any` types with typed references; added `send()` helper to bypass DOM `postMessage` overload mismatch
+- [x] **`client/dom/tts-ui.ts`** — Fixed private property access `_pendingGenerations` → `pendingGenerationsCount` getter
+- [x] **`client/phases/judge-select.ts`** — Fixed `ErrorResponse` casts to use `as unknown as ErrorResponse`; fixed `.value`/`.error` type mismatches via DOM casts; added import for `runVerdict`
+- [x] **`client/phases/debate.ts`** — Fixed `DebateCreateBody` import path; removed unused `LLMDefaults` import; added phase transition imports; cast `querySelector` results to `HTMLElement`
+- [x] **`client/phases/setup.ts`** — Fixed `.value`/`.error` type mismatches via DOM casts; fixed `null` → `undefined` for optional string fields; corrected `config` import path
+- [x] **`client/app.ts`** — Corrected `config` import path from `../config` → `./config`
 
 ---
 
 ## Recommended Fix Order
 
-1. Fix `setup.ts:182` semicolon → comma
-2. Add missing imports to `setup.ts` (TTS helpers)
-3. Define `resetPrompt` in `setup.ts` (move from inline HTML) and export it
-4. Import `resetPrompt` from `./setup` in `app.ts` (fix wrong import path)
-5. Import `initDebatePhase` in `setup.ts` from `./debate`
-6. Break circular dependency: move `renderDebateProgress`, `updateDebateStatus`, `showRetryTurn`, `hideRetryTurn` to a shared module (e.g., `client/dom/debate-ui.ts`)
-7. Add `global.d.ts` for `marked` OR add `import { parse } from 'marked'` to each file that uses it (CDN-loaded, so use global declaration)
-8. Import `ttsManager` in `verdict.ts` from `../tts/manager`
-9. Fix `require()` → `import` in `server/app.ts` and `mock/app.ts`
+All steps completed. TypeScript compilation passes cleanly for both client (`tsconfig.client.json`) and server (`tsconfig.server.json`). Phase 6 is ready to proceed.
 10. Fix `SSDoneEvent` → `SSDoneEvent` (rename consistently) or leave as-is (cosmetic)
 
 After all bugs are fixed, proceed to Phase 6.

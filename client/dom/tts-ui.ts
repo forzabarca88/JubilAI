@@ -86,8 +86,8 @@ export function updateTTSEnableButton(state: AppState) {
     if (state.tts.paused) {
       parts.push('⏸ Paused');
       stateClass = 'paused';
-    } else if (ttsManager._pendingGenerations && ttsManager._pendingGenerations.length > 0) {
-      parts.push(`Queue: ${ttsManager._pendingGenerations.length}`);
+    } else if (ttsManager.pendingGenerationsCount > 0) {
+      parts.push(`Queue: ${ttsManager.pendingGenerationsCount}`);
       stateClass = 'generating';
     }
     if (ttsManager.isPlaying) {

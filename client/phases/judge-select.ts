@@ -7,6 +7,8 @@ import { getConfig } from '../config';
 import { $, showToast, showPhase } from '../dom/helpers';
 import { apiClient } from '../api/client';
 import type { AppState } from '../state/app-state';
+import type { ErrorResponse } from '../../shared/types/api';
+import { runVerdict } from './verdict';
 
 /** Transition to the judge-select phase */
 export async function transitionToJudgeSelect(state: AppState) {
@@ -20,9 +22,9 @@ export async function transitionToJudgeSelect(state: AppState) {
 
   // Pre-fill judge endpoint with The Affirmative's endpoint as default
   const ej = $('endpointJudge2');
-  if (ej) ej.value = state.debateData!.endpointA || '';
+  if (ej) (ej as HTMLInputElement).value = state.debateData!.endpointA || '';
   const akj = $('apiKeyJudge2');
-  if (akj) akj.value = '';
+  if (akj) (akj as HTMLInputElement).value = '';
   const jms = $('judgeModelSelect2');
   if (jms) {
     jms.innerHTML = '<option value="">— fetch models first —</option>';
@@ -72,7 +74,7 @@ async function fetchModelsForJudgeSelect(state: AppState) {
     const res = await apiClient.fetchModels(url, apiKey || undefined);
     const data = await apiClient.json<{ models: { id: string }[] }>(res);
 
-    if (!res.ok) { showToast(data.error || 'Failed to fetch models', 'error'); return; }
+    if (!res.ok) { showToast((data as unknown as ErrorResponse).error || 'Failed to fetch models', 'error'); return; }
 
     const models = data.models || [];
     state.modelsJudge = models;
@@ -136,7 +138,7 @@ export function initJudgeSelectPhase(state: AppState) {
     try {
       const res = await apiClient.setJudge(state.debateId!, { judgeModel, endpointJudge, apiKeyJudge });
       const data = await apiClient.json<{ phase: string; judgeModel: string }>(res);
-      if (!res.ok) { showToast(data.error || 'Failed', 'error'); return; }
+      if (!res.ok) { showToast((data as unknown as ErrorResponse).error || 'Failed', 'error'); return; }
 
       state.debateData!.judgeModel = judgeModel;
       state.debateData!.endpointJudge = endpointJudge;

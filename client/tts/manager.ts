@@ -14,6 +14,7 @@
 
 import { getConfig } from '../config';
 import type { Speaker } from '../../shared/types/debate';
+import type { AppState } from '../state/app-state';
 
 interface GenerationItem {
   text: string;
@@ -78,7 +79,9 @@ export class RealtimeTTSManager {
 
     try {
       this.worker = new Worker('js/tts-worker.js', { type: 'module' });
-      this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) throw new Error('AudioContext not supported');
+      this.audioContext = new AudioCtx();
 
       if (this.audioContext.state === 'suspended') {
         await this.audioContext.resume().catch(() => {
@@ -111,8 +114,8 @@ export class RealtimeTTSManager {
           }
         };
 
-        this.worker.addEventListener('message', onInit);
-        this.worker.postMessage({
+        this.worker!.addEventListener('message', onInit);
+        this.worker!.postMessage({
           type: 'init',
           modelId: cfg.modelId,
           dtype: cfg.dtype,
@@ -239,11 +242,12 @@ export class RealtimeTTSManager {
 
   async _wavToAudioBufferAndPlay(wavData: ArrayBuffer) {
     try {
-      if (this.audioContext!.state === 'suspended') {
+      if (!this.audioContext) return;
+      if (this.audioContext.state === 'suspended') {
         await this.audioContext.resume();
       }
 
-      const audioBuffer = await this.audioContext!.decodeAudioData(wavData);
+      const audioBuffer = await this.audioContext.decodeAudioData(wavData);
       this.audioQueue.push(audioBuffer);
 
       if (!this._isPlaying) {
@@ -265,9 +269,10 @@ export class RealtimeTTSManager {
     const audioBuffer = this.audioQueue.shift()!;
     this._isPlaying = true;
 
-    this.currentSource = this.audioContext!.createBufferSource();
+    if (!this.audioContext) return;
+    this.currentSource = this.audioContext.createBufferSource();
     this.currentSource.buffer = audioBuffer;
-    this.currentSource.connect(this.audioContext!.destination);
+    this.currentSource.connect(this.audioContext.destination);
 
     this.currentSource.onended = () => {
       this.currentSource = null;
@@ -367,6 +372,10 @@ export class RealtimeTTSManager {
   hasQueuedAudio(): boolean {
     return this.audioQueue.length > 0;
   }
+
+  get pendingGenerationsCount(): number {
+    return this._pendingGenerations.length;
+  }
 }
 
 export const ttsManager = new RealtimeTTSManager();
@@ -394,7 +403,7 @@ export async function resumeDebateAudio(state: AppState) {
 }
 
 export function feedAudioText(text: string, speaker: Speaker | 'judge') {
-  if (ttsManager.isInitialized && !ttsManager._isPaused) {
+  if (ttsManager.isInitialized && !ttsManager.isPaused) {
     ttsManager.feedTextChunk(text, speaker);
   }
 }

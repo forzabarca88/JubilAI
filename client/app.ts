@@ -3,11 +3,11 @@
  * Replaces `public/js/app.js`.
  */
 
-import { getConfig } from '../config';
+import { getConfig } from './config';
 import { $, showToast, showPhase } from './dom/helpers';
-import { appState } from './state/app-state';
+import { appState, type AppState } from './state/app-state';
 import { stopDebateAudio, ttsManager } from './tts/manager';
-import { resetPrompt } from '../dom/tts-ui';
+import { updateTTSEnableButton } from './dom/tts-ui';
 
 /** Reset all state and UI back to the setup phase */
 export function resetToSetup(state: AppState) {

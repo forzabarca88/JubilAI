@@ -7,7 +7,7 @@ import { getConfig } from '../config';
 import { $, showToast, showPhase, scrollVerdictToBottom } from '../dom/helpers';
 import { apiClient } from '../api/client';
 import type { AppState } from '../state/app-state';
-import { startDebateAudio, stopDebateAudio, pauseDebateAudio, resumeDebateAudio, feedAudioText, finishDebateAudio } from '../tts/manager';
+import { startDebateAudio, stopDebateAudio, pauseDebateAudio, resumeDebateAudio, feedAudioText, finishDebateAudio, ttsManager } from '../tts/manager';
 import { startTTSStatusPoll, stopTTSStatusPoll, updateTTSEnableButton } from '../dom/tts-ui';
 
 /** Run the judge verdict with streaming */
@@ -171,10 +171,10 @@ function renderTranscript(state: AppState) {
       stream.appendChild(msgDiv);
     });
 
-    btn.textContent = '🙈 Hide Debate Transcript';
+    if (btn) btn.textContent = '🙈 Hide Debate Transcript';
   } else {
-    container.classList.add('hidden');
-    btn.textContent = '👁️ Show/Hide Debate Transcript';
+    if (container) container.classList.add('hidden');
+    if (btn) btn.textContent = '👁️ Show/Hide Debate Transcript';
   }
 }
 
@@ -294,11 +294,11 @@ export function initVerdictPhase(state: AppState) {
       renderTranscript(state);
     } else if (container) {
       container.classList.add('hidden');
-      btn.textContent = '👁️ Show/Hide Debate Transcript';
+      if (btn) btn.textContent = '👁️ Show/Hide Debate Transcript';
     }
   });
 
-  $('btnExportMarkdown')?.addEventListener('click', exportMarkdown);
+  $('btnExportMarkdown')?.addEventListener('click', () => exportMarkdown(state));
 
   const btnRetry = $('btnRetryVerdict');
   if (btnRetry) {

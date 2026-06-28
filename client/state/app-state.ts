@@ -3,7 +3,7 @@
  * Replaces global `appState` object with class-based encapsulation.
  */
 
-import type { Speaker, DebatePhase, Message, LLMDefaults } from '../../shared/types/debate';
+import type { Speaker, DebatePhase, Message } from '../../shared/types/debate';
 import type { ModelInfo } from '../../shared/types/api';
 import type { ClientConfig } from '../config';
 

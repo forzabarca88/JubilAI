@@ -14,6 +14,7 @@ export interface SSDoneEvent {
   countA?: number;
   countB?: number;
   autoJudge?: boolean;
+  error?: string;
 }
 
 export interface SSEErrorEvent {

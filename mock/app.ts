@@ -3,6 +3,7 @@
 import express, { Express } from 'express';
 import cors from 'cors';
 import path from 'path';
+import routes from './routes';
 
 export function createApp(): Express {
   const app = express();
@@ -26,7 +27,7 @@ export function createApp(): Express {
   });
 
   // Mount API routes
-  app.use('/api', require('./routes').default);
+  app.use('/api', routes);
 
   return app;
 }

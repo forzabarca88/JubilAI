@@ -5,11 +5,16 @@
 
 import { getConfig } from '../config';
 import { $, showToast, showPhase } from '../dom/helpers';
+import { renderDebateProgress, updateDebateStatus, showRetryTurn, hideRetryTurn } from '../dom/debate-ui';
 import { apiClient } from '../api/client';
 import { sessionStorage } from '../session/session-storage';
 import type { AppState } from '../state/app-state';
-import type { ModelInfo } from '../../shared/types/api';
-import type { DebateCreateBody } from '../../shared/types/debate';
+import type { ModelInfo, DebateCreateBody } from '../../shared/types/api';
+import { startDebateAudio, stopDebateAudio } from '../tts/manager';
+import { updateTTSEnableButton } from '../dom/tts-ui';
+import { initDebatePhase, executeNextTurn } from './debate';
+import { runVerdict } from './verdict';
+import { transitionToJudgeSelect } from './judge-select';
 
 type Panel = 'A' | 'B' | 'Judge';
 
@@ -179,7 +184,7 @@ function gatherAdvancedSettings(): {
     maxTokens: maxTokens?.value ? parseInt(maxTokens.value, 10) : undefined,
     judgeTemperature: judgeTemperature?.value ? parseFloat(judgeTemperature.value) : undefined,
     judgeTopP: judgeTopP?.value ? parseFloat(judgeTopP.value) : undefined,
-    judgeTopK: judgeTopK?.value ? parseInt(judgeTopK.value, 10) : undefined;
+    judgeTopK: judgeTopK?.value ? parseInt(judgeTopK.value, 10) : undefined,
     judgeMaxTokens: judgeMaxTokens?.value ? parseInt(judgeMaxTokens.value, 10) : undefined,
   };
 }
@@ -284,15 +289,15 @@ export function initSetupPhase(state: AppState) {
     }
 
     // Gather config values
-    const endpointA = $('endpointA')?.value.trim().replace(/\/+$/, '') || '';
-    const apiKeyA = $('apiKeyA')?.value.trim() || '';
-    const modelA = $('modelA')?.value || '';
-    const endpointB = $('endpointB')?.value.trim().replace(/\/+$/, '') || '';
-    const apiKeyB = $('apiKeyB')?.value.trim() || '';
-    const modelB = $('modelB')?.value || '';
-    const judgeModel = $('judgeModelSelect')?.value || '';
-    const endpointJudge = $('endpointJudge')?.value.trim().replace(/\/+$/, '') || '';
-    const apiKeyJudge = $('apiKeyJudge')?.value.trim() || '';
+    const endpointA = $('endpointA') ? ($('endpointA') as HTMLInputElement).value.trim().replace(/\/+$/, '') : '';
+    const apiKeyA = $('apiKeyA') ? ($('apiKeyA') as HTMLInputElement).value.trim() : '';
+    const modelA = $('modelA') ? ($('modelA') as HTMLSelectElement).value : '';
+    const endpointB = $('endpointB') ? ($('endpointB') as HTMLInputElement).value.trim().replace(/\/+$/, '') : '';
+    const apiKeyB = $('apiKeyB') ? ($('apiKeyB') as HTMLInputElement).value.trim() : '';
+    const modelB = $('modelB') ? ($('modelB') as HTMLSelectElement).value : '';
+    const judgeModel = $('judgeModelSelect') ? ($('judgeModelSelect') as HTMLSelectElement).value : '';
+    const endpointJudge = $('endpointJudge') ? ($('endpointJudge') as HTMLInputElement).value.trim().replace(/\/+$/, '') : '';
+    const apiKeyJudge = $('apiKeyJudge') ? ($('apiKeyJudge') as HTMLInputElement).value.trim() : '';
 
     const settings = gatherAdvancedSettings();
     state.advancedSettings = settings;
@@ -306,9 +311,9 @@ export function initSetupPhase(state: AppState) {
         apiKeyA,
         endpointB,
         apiKeyB,
-        judgeModel: judgeModel || null,
-        endpointJudge: endpointJudge || null,
-        apiKeyJudge: apiKeyJudge || null,
+        judgeModel: judgeModel || undefined,
+        endpointJudge: endpointJudge || undefined,
+        apiKeyJudge: apiKeyJudge || undefined,
         promptA: settings.promptA || undefined,
         promptB: settings.promptB || undefined,
         promptJudge: settings.promptJudge || undefined,
@@ -426,208 +431,11 @@ export function initSetupPhase(state: AppState) {
   checkSetupReady(state);
 }
 
-/** Render progress for both sides */
-function renderDebateProgress(state: AppState) {
-  const fillA = $('progressA');
-  const fillB = $('progressB');
-  if (fillA) {
-    const percentage = (state.countA / state.maxTurns) * 100;
-    fillA.style.width = `${percentage}%`;
+/** Reset a prompt textarea to its default value */
+export function resetPrompt(role: 'A' | 'B' | 'Judge', defaultPrompt: string) {
+  const el = role === 'A' ? $('promptA') : role === 'B' ? $('promptB') : $('promptJudge');
+  if (el) {
+    (el as HTMLTextAreaElement).value = defaultPrompt;
+    showToast(`${role === 'Judge' ? 'Judge' : role === 'A' ? 'Affirmative' : 'Negative'} prompt reset to default`, 'info');
   }
-  if (fillB) {
-    const percentage = (state.countB / state.maxTurns) * 100;
-    fillB.style.width = `${percentage}%`;
-  }
-}
-
-/** Update the status badge */
-function updateDebateStatus(state: AppState) {
-  const badge = $('statusBadge');
-  const text = $('statusText');
-
-  if (state.isStreaming) {
-    const speakerName = state._activeSpeaker === 'A' ? 'The Affirmative' : 'The Negative';
-    if (text) text.innerHTML = `<span class="spinner"></span> ${speakerName} generating...`;
-    if (badge) badge.className = 'status-badge active';
-  } else if (state.countA >= state.maxTurns && state.countB >= state.maxTurns) {
-    if (state.autoJudge) {
-      if (text) text.innerHTML = '<span class="spinner"></span> Debate complete — judge evaluating...';
-    } else {
-      if (text) text.textContent = 'Debate Complete';
-    }
-    if (badge) badge.className = 'status-badge waiting';
-  } else {
-    const speakerName = state.currentSpeaker === 'A' ? 'The Affirmative' : 'The Negative';
-    const model = state.currentSpeaker === 'A' ? state.debateData?.modelA : state.debateData?.modelB;
-    if (text) text.textContent = `${speakerName}'s turn (${model})`;
-    if (badge) badge.className = 'status-badge active';
-  }
-}
-
-/** Execute a single debate turn with streaming */
-export async function executeNextTurn(state: AppState) {
-  if (state.isStreaming) return;
-  if (!state.currentSpeaker) return;
-
-  const activeSpeaker = state.currentSpeaker;
-  state.isStreaming = true;
-  state._activeSpeaker = activeSpeaker;
-  updateDebateStatus(state);
-
-  if (state.tts.enabled) {
-    startTTSStatusPoll(state);
-  }
-
-  const model = activeSpeaker === 'A' ? state.debateData!.modelA : state.debateData!.modelB;
-  const endpoint = activeSpeaker === 'A' ? state.debateData!.endpointA : state.debateData!.endpointB;
-
-  const msgDiv = document.createElement('div');
-  msgDiv.className = `message ${activeSpeaker === 'A' ? 'affirmative' : 'negative'}`;
-  const speakerLabel = activeSpeaker === 'A' ? 'The Affirmative (TRUE)' : 'The Negative (FALSE)';
-
-  msgDiv.innerHTML = `
-    <div class="message-header">
-      <span class="message-label">${speakerLabel}</span>
-      <div class="message-meta">
-        <span class="message-model">${model}</span>
-        <span class="message-endpoint">${endpoint}</span>
-      </div>
-    </div>
-    <div class="message-content streaming"></div>
-  `;
-  const stream = $('debateStream');
-  if (stream) stream.appendChild(msgDiv);
-  const contentEl = msgDiv.querySelector('.message-content')!;
-
-  let fullContent = '';
-
-  try {
-    const res = await apiClient.nextTurn(state.debateId!, activeSpeaker);
-
-    if (!res.ok) {
-      const errBody = await res.text();
-      contentEl.classList.remove('streaming');
-      contentEl.textContent = `Server error (${res.status}): ${errBody}`;
-      contentEl.style.color = '#e74c3c';
-      showToast(`Server error (${res.status}): ${errBody}`, 'error');
-      if (state.tts.enabled) stopDebateAudio(state);
-      state.isStreaming = false;
-      stopTTSStatusPoll();
-      updateDebateStatus(state);
-      showRetryTurn();
-      return;
-    }
-
-    const reader = res.body!.getReader();
-    const decoder = new TextDecoder();
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      const chunk = decoder.decode(value, { stream: true });
-      const lines = chunk.split('\n');
-
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const data = JSON.parse(line.slice(6)) as {
-            type: string;
-            content?: string;
-            debateComplete?: boolean;
-            nextSpeaker?: string | null;
-            winner?: string | null;
-            verdict?: string;
-            countA?: number;
-            countB?: number;
-            autoJudge?: boolean;
-            error?: string;
-          };
-
-          if (data.type === 'chunk') {
-            fullContent += data.content!;
-            contentEl.innerHTML = marked.parse(fullContent);
-            scrollToBottom();
-
-            if (state.tts.enabled) {
-              feedAudioText(data.content!, activeSpeaker);
-            }
-          } else if (data.type === 'done') {
-            contentEl.classList.remove('streaming');
-            contentEl.innerHTML = marked.parse(fullContent);
-
-            if (state.tts.enabled) {
-              await finishDebateAudio(activeSpeaker);
-            }
-
-            state.debateData!.messages.push({
-              speaker: activeSpeaker,
-              content: fullContent,
-              model: model,
-              timestamp: Date.now(),
-            });
-            state.countA = data.countA ?? state.countA;
-            state.countB = data.countB ?? state.countB;
-            renderDebateProgress(state);
-
-            if (data.debateComplete) {
-              state.currentSpeaker = null;
-              state.isStreaming = false;
-              hideRetryTurn();
-              stopTTSStatusPoll();
-              updateDebateStatus(state);
-
-              if (data.autoJudge) {
-                await new Promise(resolve => setTimeout(resolve, getConfig().debate.autoJudgeDelayMs));
-                await runVerdict(state.debateData!.judgeModel!, state.debateData!.endpointJudge!, state);
-              } else {
-                await transitionToJudgeSelect(state);
-              }
-              return;
-            } else {
-              state.currentSpeaker = data.nextSpeaker as 'A' | 'B' | null;
-              state.isStreaming = false;
-              hideRetryTurn();
-              stopTTSStatusPoll();
-              updateDebateStatus(state);
-
-              await new Promise(resolve => setTimeout(resolve, getConfig().debate.autoAdvanceDelayMs));
-              await executeNextTurn(state);
-              break;
-            }
-          } else if (data.type === 'error') {
-            contentEl.classList.remove('streaming');
-            contentEl.textContent = `Error: ${data.error}`;
-            contentEl.style.color = '#e74c3c';
-            showToast('Error: ' + data.error!, 'error');
-            if (state.tts.enabled) await finishDebateAudio(activeSpeaker);
-            state.isStreaming = false;
-            stopTTSStatusPoll();
-            updateDebateStatus(state);
-            showRetryTurn();
-            break;
-          }
-        }
-      }
-    }
-  } catch (err) {
-    contentEl.classList.remove('streaming');
-    contentEl.textContent = 'Connection error';
-    contentEl.style.color = '#e74c3c';
-    showToast('Network error: ' + (err as Error).message, 'error');
-    if (state.tts.enabled) stopDebateAudio(state);
-    state.isStreaming = false;
-    stopTTSStatusPoll();
-    updateDebateStatus(state);
-    showRetryTurn();
-  }
-}
-
-function showRetryTurn() {
-  const btn = $('btnRetryTurn');
-  if (btn) btn.style.display = '';
-}
-
-function hideRetryTurn() {
-  const btn = $('btnRetryTurn');
-  if (btn) btn.style.display = 'none';
 }
