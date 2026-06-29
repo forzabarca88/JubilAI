@@ -53,6 +53,11 @@ export interface SessionConfig {
   localStorageKeyPlain: string;
 }
 
+export interface DebateStorageConfig {
+  defaultDirName: string;
+  maxListCount: number;
+}
+
 export interface UIConfig {
   toastAutoDismissMs: number;
   phases: string[];
@@ -74,6 +79,7 @@ export interface RootConfig {
   prompts: PromptsConfig;
   tts: TTSConfig;
   session: SessionConfig;
+  debateStorage: DebateStorageConfig;
   ui: UIConfig;
   mock: MockConfig;
 }

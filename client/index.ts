@@ -10,6 +10,7 @@ import { initSetupPhase } from './phases/setup';
 import { initDebatePhase } from './phases/debate';
 import { initJudgeSelectPhase } from './phases/judge-select';
 import { initVerdictPhase } from './phases/verdict';
+import { initHistoryPanel } from './phases/history';
 import { initApp, resetToSetup } from './app';
 import { updateTTSEnableButton } from './dom/tts-ui';
 import { ttsManager } from './tts/manager';
@@ -23,6 +24,7 @@ loadConfig().then(() => {
   initDebatePhase(appState);
   initJudgeSelectPhase(appState);
   initVerdictPhase(appState);
+  initHistoryPanel(appState);
   initApp();
   
   console.log('[JubilAI] App initialized');

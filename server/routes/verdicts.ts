@@ -7,6 +7,7 @@ import { getJudgePrompt } from '../../shared/utils/prompts';
 import { setupSSE, sendChunk, sendDone, sendError } from '../../shared/utils/streaming';
 import { Debate } from '../../shared/types/debate';
 import { SSDoneEvent } from '../../shared/types/sse';
+import { saveDebate } from '../../shared/utils/debate-storage';
 import config from '../../shared/utils/config';
 
 const router = Router();
@@ -128,6 +129,9 @@ Format your response starting with "Winner: The Affirmative" or "Winner: The Neg
 
     debate.verdict = fullContent;
     debate.phase = 'complete';
+
+    // Persist completed debate to disk
+    saveDebate(debate);
 
     const winnerMatch = fullContent.match(config.debate.winnerPattern);
     const winner = winnerMatch ? 'The ' + winnerMatch[2] : null;

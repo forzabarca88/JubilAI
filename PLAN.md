@@ -431,19 +431,19 @@ Add `initHistoryPanel(appState)` call after the other phase initializers.
 
 ## 5. Implementation Order
 
-1. **Config** — add `debateStorage` to `config.json` and `shared/types/config.ts`.
-2. **Storage module** — `shared/utils/debate-storage.ts` (file I/O, path resolution).
-3. **Server persistence** — hook `saveDebate` into verdict completion in `server/routes/verdicts.ts`; hook `deleteDebate` into `DELETE /api/debate/:id` in `server/routes/debates.ts`.
-4. **Server startup** — call `loadPersistedDebates()` in `server/index.ts` and `mock/index.ts`.
-5. **New API endpoints** — add `GET /api/debates`, `GET /api/debates/:id`, `DELETE /api/debates/:id` to `server/routes/debates.ts` (and mirror in mock).
-6. **Client types** — add `SavedDebateSummary` and `DebatesListResponse` to `shared/types/api.ts`.
-7. **Client API** — add `listDebates`, `getDebateHistory`, `deleteDebateHistory` to `client/api/client.ts`.
-8. **HTML** — add `#btnHistory` in nav, add `#historyOverlay` panel.
-9. **CSS** — add history overlay, card, and responsive styles.
-10. **History module** — `client/phases/history.ts` (overlay logic, card rendering, view/delete actions).
-11. **Initialization** — wire `initHistoryPanel` in `client/index.ts`.
-12. **Mock server** — mirror new endpoints in `mock/routes/debates.ts`.
-13. **Test** — run `node test-e2e.mjs` to verify.
+1. **Config** — add `debateStorage` to `config.json` and `shared/types/config.ts`. ✅ DONE
+2. **Storage module** — `shared/utils/debate-storage.ts` (file I/O, path resolution). ✅ DONE
+3. **Server persistence** — hook `saveDebate` into verdict completion in `server/routes/verdicts.ts`; hook `deleteDebate` into `DELETE /api/debate/:id` in `server/routes/debates.ts`. ✅ DONE
+4. **Server startup** — call `loadPersistedDebates()` in `server/index.ts` and `mock/index.ts`. ✅ DONE
+5. **New API endpoints** — add `GET /api/debates`, `GET /api/debates/:id`, `DELETE /api/debates/:id` to `server/routes/debates.ts` (and mirror in mock). ✅ DONE (real server; mock pending)
+6. **Client types** — add `SavedDebateSummary` and `DebatesListResponse` to `shared/types/api.ts`. ✅ DONE
+7. **Client API** — add `listDebates`, `getDebateHistory`, `deleteDebateHistory` to `client/api/client.ts`. ✅ DONE
+8. **HTML** — add `#btnHistory` in nav, add `#historyOverlay` panel. ✅ DONE
+9. **CSS** — add history overlay, card, and responsive styles. ✅ DONE
+10. **History module** — `client/phases/history.ts` (overlay logic, card rendering, view/delete actions). ✅ DONE
+11. **Initialization** — wire `initHistoryPanel` in `client/index.ts`. ✅ DONE
+12. **Mock server** — mirror new endpoints in `mock/routes/debates.ts`. ✅ DONE
+13. **Test** — run `node test-e2e.mjs` to verify. ✅ PASS
 
 ---
 

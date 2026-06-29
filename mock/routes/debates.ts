@@ -4,6 +4,7 @@ import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { debates } from '../../shared/middleware/debates';
 import { Debate, DebateCreateRequest, DebateResponse, DebateStateResponse } from '../../shared/types/debate';
+import { deleteDebate, loadDebate, listDebates } from '../../shared/utils/debate-storage';
 import config from '../../shared/utils/config';
 
 const router = Router();
@@ -78,7 +79,11 @@ router.get('/debate/:id', (req: Request, res: Response): void => {
     res.status(400).json({ error: 'Invalid ID' });
     return;
   }
-  const debate = debates.get(id);
+  let debate = debates.get(id);
+  // Fall back to disk storage for completed debates not in memory
+  if (!debate) {
+    debate = loadDebate(id) ?? undefined;
+  }
   if (!debate) {
     res.status(404).json({ error: 'Debate not found' });
     return;
@@ -108,6 +113,61 @@ router.delete('/debate/:id', (req: Request, res: Response): void => {
     return;
   }
   debates.delete(id);
+  deleteDebate(id); // also remove disk file
+  res.json({ success: true });
+});
+
+/** GET /api/debates — List all persisted debates (mock) */
+router.get('/debates', (req: Request, res: Response): void => {
+  const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
+  const debatesList = listDebates(limit);
+  res.json({ debates: debatesList });
+});
+
+/** GET /api/debates/:id — Get a persisted debate's full data (mock) */
+router.get('/debates/:id', (req: Request, res: Response): void => {
+  const id = req.params.id;
+  if (typeof id !== 'string') {
+    res.status(400).json({ error: 'Invalid ID' });
+    return;
+  }
+  // Try in-memory first, then disk
+  let debate = debates.get(id);
+  if (!debate) {
+    debate = loadDebate(id) ?? undefined;
+  }
+  if (!debate) {
+    res.status(404).json({ error: 'Debate not found' });
+    return;
+  }
+  const response: DebateStateResponse = {
+    id: debate.id,
+    statement: debate.statement,
+    modelA: debate.modelA,
+    modelB: debate.modelB,
+    messages: debate.messages,
+    nextSpeaker: debate.nextSpeaker,
+    countA: debate.countA,
+    countB: debate.countB,
+    phase: debate.phase,
+    judgeModel: debate.judgeModel,
+    verdict: debate.verdict,
+    autoJudge: debate.autoJudge,
+  };
+  res.json(response);
+});
+
+/** DELETE /api/debates/:id — Delete a persisted debate (mock) */
+router.delete('/debates/:id', (req: Request, res: Response): void => {
+  const id = req.params.id;
+  if (typeof id !== 'string') {
+    res.status(400).json({ error: 'Invalid ID' });
+    return;
+  }
+  // Remove from in-memory map (active debates)
+  debates.delete(id);
+  // Remove from disk (persisted completed debates)
+  deleteDebate(id);
   res.json({ success: true });
 });
 

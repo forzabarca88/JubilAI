@@ -15,6 +15,8 @@ import type {
   TurnRequest,
   VerdictRequest,
   ErrorResponse,
+  SavedDebateSummary,
+  DebatesListResponse,
 } from '../../shared/types/api';
 import type { SSEEvent } from '../../shared/types/sse';
 
@@ -70,6 +72,21 @@ export class ApiClient {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
     });
+  }
+
+  /** List all persisted debates */
+  async listDebates(): Promise<Response> {
+    return fetch('/api/debates');
+  }
+
+  /** Get a single persisted debate */
+  async getDebateHistory(id: string): Promise<Response> {
+    return fetch(`/api/debates/${id}`);
+  }
+
+  /** Delete a persisted debate */
+  async deleteDebateHistory(id: string): Promise<Response> {
+    return fetch(`/api/debates/${id}`, { method: 'DELETE' });
   }
 
   /** Parse JSON response, throwing on non-OK */
