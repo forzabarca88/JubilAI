@@ -51,6 +51,8 @@ async function main() {
   const consoleErrors = [];
   const consoleLogs = [];
 
+  const historyFailures = [];
+
   try {
     const browser = await chromium.launch();
     const page = await browser.newPage();
@@ -166,6 +168,166 @@ async function main() {
     const transcriptMessages = await page.$$eval('#transcriptStream .message', els => els.length);
     console.log(`✓ Transcript: ${transcriptMessages} messages`);
 
+    // ── History feature validation ──────────────────────────────
+
+    // 12. Verify history button exists in nav
+    console.log('12. Checking history button...');
+    const historyBtn = await page.$('#btnHistory');
+    if (!historyBtn) {
+      console.log('  ❌ FAIL: #btnHistory not found in nav');
+      historyFailures.push('Missing #btnHistory button');
+    } else {
+      console.log('✓ History button present');
+    }
+
+    // 13. Verify history overlay panel exists (hidden by default)
+    const historyOverlay = await page.$('#historyOverlay');
+    if (!historyOverlay) {
+      console.log('  ❌ FAIL: #historyOverlay not found');
+      historyFailures.push('Missing #historyOverlay panel');
+    } else {
+      const isHidden = await historyOverlay.getAttribute('class');
+      if (isHidden?.includes('hidden')) {
+        console.log('✓ History overlay exists and is hidden by default');
+      } else {
+        console.log('  ⚠ History overlay visible on setup phase (unexpected)');
+      }
+    }
+
+    // 14. Verify GET /api/debates endpoint returns the completed debate
+    console.log('13. Checking GET /api/debates endpoint...');
+    const listRes = await page.evaluate(async () => {
+      const r = await fetch('/api/debates');
+      return {
+        status: r.status,
+        ok: r.ok,
+        body: r.status === 200 ? await r.json() : null
+      };
+    });
+    if (listRes.status === 404) {
+      console.log('  ❌ FAIL: GET /api/debates returned 404 (endpoint missing)');
+      historyFailures.push('GET /api/debates endpoint not implemented');
+    } else if (listRes.ok && listRes.body?.debates && Array.isArray(listRes.body.debates)) {
+      const debateCount = listRes.body.debates.length;
+      console.log(`✓ GET /api/debates returned ${debateCount} debate(s)`);
+      if (debateCount === 0) {
+        console.log('  ⚠ No persisted debates found (persistence hook may be missing)');
+        historyFailures.push('No debates persisted after completion');
+      }
+      // Verify the debate we just ran is in the list
+      const hasOurDebate = listRes.body.debates.some(d =>
+        d.statement === 'AI will surpass human intelligence by 2040'
+      );
+      if (hasOurDebate) {
+        console.log('✓ Our debate is in the history list');
+      } else if (debateCount > 0) {
+        console.log('  ⚠ Our debate not found in list (mismatch)');
+        historyFailures.push('Debate not found in history list');
+      }
+    } else {
+      console.log(`  ❌ FAIL: GET /api/debates status=${listRes.status}`);
+      historyFailures.push(`GET /api/debates returned status ${listRes.status}`);
+    }
+
+    // 15. Verify GET /api/debates/:id returns the full debate
+    const debateId = await page.evaluate((debates) => {
+      const d = debates.find(d => d.statement === 'AI will surpass human intelligence by 2040');
+      return d ? d.id : null;
+    }, listRes.body?.debates || []);
+    if (debateId) {
+      console.log('14. Checking GET /api/debates/:id...');
+      const getRes = await page.evaluate(async (id) => {
+        const r = await fetch(`/api/debates/${id}`);
+        return {
+          status: r.status,
+          ok: r.ok,
+          body: r.status === 200 ? await r.json() : null
+        };
+      }, debateId);
+      if (getRes.ok && getRes.body) {
+        const d = getRes.body;
+        console.log(`✓ GET /api/debates/:id returned debate (phase=${d.phase}, messages=${d.messages?.length || 0})`);
+        if (d.phase !== 'complete') {
+          console.log('  ⚠ Debate phase is not "complete"');
+        }
+        if (d.messages?.length < 6) {
+          console.log('  ⚠ Debate has fewer than 6 messages');
+        }
+        if (!d.verdict) {
+          console.log('  ⚠ Debate has no verdict');
+        }
+      } else {
+        console.log(`  ❌ FAIL: GET /api/debates/:id status=${getRes.status}`);
+        historyFailures.push(`GET /api/debates/:id returned status ${getRes.status}`);
+      }
+    }
+
+    // 16. Open history panel via UI
+    if (historyBtn) {
+      console.log('15. Opening history panel via UI...');
+      await historyBtn.click();
+      await page.waitForSelector('#historyOverlay', { state: 'visible', timeout: 5000 }).catch(() => {
+        console.log('  ❌ FAIL: History overlay did not become visible');
+        historyFailures.push('History overlay did not open on button click');
+      });
+
+      // Check for debate card in the list
+      const historyCards = await page.$$('.history-card');
+      console.log(`✓ History panel shows ${historyCards.length} card(s)`);
+
+      // 17. Verify DELETE /api/debates/:id via UI
+      if (historyCards.length > 0) {
+        console.log('16. Testing delete via UI...');
+        const deleteBtn = await page.$('.btn-delete-debate');
+        if (deleteBtn) {
+          // Click delete (may trigger confirmation)
+          await deleteBtn.click();
+          // Wait for confirmation toast if shown, then confirm
+          const confirmToast = await page.$('.toast.show');
+          if (confirmToast) {
+            // Some implementations use confirm() dialog — try clicking OK
+            const dialogPromise = new Promise(resolve => {
+              page.on('dialog', dialog => { dialog.accept(); resolve(true); });
+            });
+            await Promise.race([dialogPromise, new Promise(r => setTimeout(r, 2000))]);
+          }
+          // Wait for toast to appear
+          await page.waitForSelector('.toast.show', { timeout: 5000 }).catch(() => {});
+          await new Promise(r => setTimeout(r, 1000));
+
+          // Verify debate is gone from the list
+          const cardsAfterDelete = await page.$$('.history-card');
+          console.log(`  After delete: ${cardsAfterDelete.length} card(s) remaining`);
+
+          // Verify via API that debate is gone
+          if (debateId) {
+            const deleteCheck = await page.evaluate(async (id) => {
+              const r = await fetch(`/api/debates/${id}`);
+              return r.status;
+            }, debateId);
+            if (deleteCheck === 404) {
+              console.log('✓ Debate deleted successfully (404 on re-fetch)');
+            } else {
+              console.log(`  ❌ FAIL: Debate still exists after delete (status=${deleteCheck})`);
+              historyFailures.push('DELETE /api/debates/:id did not remove debate');
+            }
+          }
+        } else {
+          console.log('  ❌ FAIL: No .btn-delete-debate found in history card');
+          historyFailures.push('Missing delete button in history card');
+        }
+      }
+
+      // Close history panel
+      console.log('17. Closing history panel...');
+      await page.click('#btnCloseHistory');
+      await page.waitForSelector('#historyOverlay', { state: 'hidden', timeout: 3000 }).catch(() => {
+        console.log('  ❌ FAIL: History overlay did not close');
+        historyFailures.push('History overlay did not close');
+      });
+      console.log('✓ History panel closed');
+    }
+
     // Final summary
     console.log('\n=== TEST RESULTS ===');
     console.log(`  Console errors: ${consoleErrors.length}`);
@@ -176,24 +338,40 @@ async function main() {
     for (const l of consoleLogs) console.log(`    ${l}`);
     console.log(`  Winner: ${winner || 'N/A'}`);
     console.log(`  Transcript messages: ${transcriptMessages}`);
+    if (historyFailures.length > 0) {
+      console.log(`  History failures: ${historyFailures.length}`);
+      for (const f of historyFailures) console.log(`    ❌ ${f}`);
+    } else {
+      console.log('  History: ✅ All checks passed');
+    }
 
-    if (consoleErrors.some(e => e.includes('Worker error') || e.includes('Uncaught'))) {
+    const hasRuntimeErrors = consoleErrors.some(e => e.includes('Worker error') || e.includes('Uncaught'));
+    const hasTurnFailures = transcriptMessages < 6;
+    const hasWinnerFailures = !winner || !winner.includes('Negative');
+    const hasHistoryFailures = historyFailures.length > 0;
+
+    if (hasRuntimeErrors) {
       console.log('\n❌ FAIL: Runtime errors detected');
       await browser.close();
       server.kill();
       process.exit(1);
-    } else if (transcriptMessages < 6) {
+    } else if (hasTurnFailures) {
       console.log('\n❌ FAIL: Not all debate turns completed');
       await browser.close();
       server.kill();
       process.exit(1);
-    } else if (!winner || !winner.includes('Negative')) {
+    } else if (hasWinnerFailures) {
       console.log('\n❌ FAIL: Unexpected winner');
       await browser.close();
       server.kill();
       process.exit(1);
+    } else if (hasHistoryFailures) {
+      console.log(`\n❌ FAIL: History feature — ${historyFailures.join('; ')}`);
+      await browser.close();
+      server.kill();
+      process.exit(1);
     } else {
-      console.log('\n✅ PASS: Full debate flow completed successfully');
+      console.log('\n✅ PASS: Full debate flow + history completed successfully');
     }
 
     await browser.close();
@@ -204,7 +382,9 @@ async function main() {
     server.kill();
   }
 
-  process.exit(consoleErrors.some(e => e.includes('Worker error') || e.includes('Uncaught')) ? 1 : 0);
+  const hasRuntimeErrors = consoleErrors.some(e => e.includes('Worker error') || e.includes('Uncaught'));
+  const hasHistoryFailures = historyFailures.length > 0;
+  process.exit(hasRuntimeErrors || hasHistoryFailures ? 1 : 0);
 }
 
 main().catch(err => {
