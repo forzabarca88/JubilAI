@@ -54,3 +54,6 @@ Dockerfile.dev
 Dockerfile.prod
 docker-compose.override.yml
 docker-compose.*.yml
+
+# reference material
+.references
