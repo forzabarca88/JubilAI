@@ -6,7 +6,7 @@
 import { getConfig } from './config';
 import { $, showToast, showPhase } from './dom/helpers';
 import { appState, type AppState } from './state/app-state';
-import { stopDebateAudio, ttsManager } from './tts/manager';
+import { stopDebateAudio, stopHistoryAudio, ttsManager } from './tts/manager';
 import { updateTTSEnableButton } from './dom/tts-ui';
 
 /** Reset all state and UI back to the setup phase */
@@ -16,6 +16,7 @@ export function resetToSetup(state: AppState) {
 
   // Stop any playing TTS audio and clean up model
   stopDebateAudio(state);
+  stopHistoryAudio(state);
   ttsManager.destroy();
 
   state.debateId = null;
@@ -31,6 +32,8 @@ export function resetToSetup(state: AppState) {
   state.tts.speakerVoices = {};
   state.tts.activeSpeaker = null;
   state.tts.paused = false;
+  state.tts.useHistoryPlayback = false;
+  state.tts.pendingHistoryPlayback = null;
 
   // Reset advanced settings
   state.advancedSettings = {

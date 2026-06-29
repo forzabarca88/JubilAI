@@ -13,6 +13,7 @@
     <h1 class="nav-title">JubilAI</h1>
   </div>
   <div class="nav-status">
+    <button class="btn btn-ghost btn-sm nav-history-btn" id="btnHistory">📜 History</button>
     <span class="status-indicator hidden" id="statusBadge">
       <span id="statusText"></span>
     </span>
@@ -281,6 +282,22 @@
   </section>
 
 </main>
+
+<!-- History overlay panel -->
+<div class="history-overlay hidden" id="historyOverlay">
+  <div class="history-panel">
+    <div class="history-panel-header">
+      <h2 class="history-panel-title">Debate History</h2>
+      <button class="btn btn-ghost btn-sm" id="btnCloseHistory">✕ Close</button>
+    </div>
+    <div class="history-list" id="historyList">
+      <!-- populated dynamically -->
+    </div>
+    <div class="history-empty hidden" id="historyEmpty">
+      <p>No past debates found.</p>
+    </div>
+  </div>
+</div>
 
 <div class="toast" id="toast"></div>
 

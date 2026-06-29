@@ -110,3 +110,19 @@ export interface ErrorResponse {
 export interface SuccessResponse {
   success: boolean;
 }
+
+// History (debate list) types
+export interface SavedDebateSummary {
+  id: string;
+  statement: string;
+  modelA: string;
+  modelB: string;
+  phase: string;
+  verdict: string | null;
+  winner: string | null;
+  timestamp: number;
+}
+
+export interface DebatesListResponse {
+  debates: SavedDebateSummary[];
+}

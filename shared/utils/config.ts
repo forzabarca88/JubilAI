@@ -42,6 +42,8 @@ function loadConfig(): RootConfig {
     ['session.dbName', () => typeof parsed.session.dbName === 'string'],
     ['session.dbVersion', () => typeof parsed.session.dbVersion === 'number'],
     ['ui.phases', () => Array.isArray(parsed.ui.phases)],
+    ['debateStorage.defaultDirName', () => typeof parsed.debateStorage.defaultDirName === 'string'],
+    ['debateStorage.maxListCount', () => typeof parsed.debateStorage.maxListCount === 'number'],
     ['mock.models', () => Array.isArray(parsed.mock.models)],
   ];
 

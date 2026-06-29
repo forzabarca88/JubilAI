@@ -15,6 +15,7 @@
 import { getConfig } from '../config';
 import type { Speaker } from '../../shared/types/debate';
 import type { AppState } from '../state/app-state';
+import { startTTSStatusPoll, stopTTSStatusPoll } from '../dom/tts-ui';
 
 interface GenerationItem {
   text: string;
@@ -414,4 +415,70 @@ export async function finishDebateAudio(speaker: Speaker | 'judge') {
   if (ttsManager.isInitialized) {
     await ttsManager.finishStreaming(speaker);
   }
+}
+
+/**
+ * Play TTS for a viewed historical debate.
+ * Feeds all messages (A/B) and the verdict text to the generation queue.
+ * Text is already complete, so we skip sentence buffering and feed directly.
+ */
+export async function playHistoryAudio(
+  messages: { speaker: string; content: string }[],
+  verdict: string | null,
+  state: AppState
+): Promise<void> {
+  if (!state.tts.enabled) return;
+
+  // Initialize TTS worker if not already loaded
+  if (!ttsManager.isInitialized) {
+    try {
+      await ttsManager.initialize();
+    } catch (err) {
+      console.warn('[TTS] Init failed for history playback:', (err as Error).message);
+      state.tts.enabled = false;
+      return;
+    }
+  }
+
+  // Pick random voices (original voices not stored)
+  const voices = ttsManager.pickRandomVoices();
+  ttsManager.assignVoices(voices);
+  state.tts.speakerVoices = voices;
+  state.tts.useHistoryPlayback = true;
+
+  // Stop any existing audio
+  ttsManager.stopAudio();
+
+  // Feed all debate messages in order
+  for (const msg of messages) {
+    const speaker: Speaker | 'judge' = msg.speaker as Speaker;
+    // Feed complete text directly (no sentence buffering for history)
+    ttsManager._queueAudioGeneration(msg.content, speaker);
+  }
+
+  // Feed verdict text with judge voice
+  if (verdict) {
+    ttsManager._queueAudioGeneration(verdict, 'judge');
+  }
+
+  // Process the queue
+  if (!ttsManager._workerBusy && ttsManager._pendingGenerations.length > 0) {
+    ttsManager._processGenerationQueue();
+  }
+
+  // Start status polling so UI reflects playback state
+  startTTSStatusPoll(state);
+
+  console.log('[TTS] History playback started:', messages.length, 'messages + verdict');
+}
+
+/**
+ * Stop history playback and reset to normal mode.
+ */
+export function stopHistoryAudio(state: AppState): void {
+  ttsManager.stopAudio();
+  state.tts.useHistoryPlayback = false;
+  state.tts.paused = false;
+  state.tts.pendingHistoryPlayback = null;
+  stopTTSStatusPoll();
 }

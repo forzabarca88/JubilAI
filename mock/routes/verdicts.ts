@@ -5,6 +5,7 @@ import { findDebate } from '../../shared/middleware/debates';
 import { setupSSE, sendChunk, sendDone, sendError, streamText } from '../../shared/utils/streaming';
 import { Debate } from '../../shared/types/debate';
 import { SSDoneEvent } from '../../shared/types/sse';
+import { saveDebate } from '../../shared/utils/debate-storage';
 import config from '../../shared/utils/config';
 import { MOCK_JUDGE_VERDICT } from '../data/mock-data';
 
@@ -60,6 +61,9 @@ router.post('/debate/:id/verdict', findDebate, async (req: Request, res: Respons
 
     debate.verdict = content;
     debate.phase = 'complete';
+
+    // Persist completed debate to disk
+    saveDebate(debate);
 
     const winnerMatch = content.match(config.debate.winnerPattern);
     const winner = winnerMatch ? 'The ' + winnerMatch[2] : null;
