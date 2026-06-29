@@ -8,7 +8,7 @@ import { $, showToast, showPhase, scrollVerdictToBottom } from '../dom/helpers';
 import { apiClient } from '../api/client';
 import type { AppState } from '../state/app-state';
 import { startDebateAudio, stopDebateAudio, pauseDebateAudio, resumeDebateAudio, feedAudioText, finishDebateAudio, ttsManager } from '../tts/manager';
-import { startTTSStatusPoll, stopTTSStatusPoll, updateTTSEnableButton, toggleTTSEnable, pauseDebateAudioAndUI, resumeDebateAudioAndUI } from '../dom/tts-ui';
+import { startTTSStatusPoll, stopTTSStatusPoll } from '../dom/tts-ui';
 
 /** Run the judge verdict with streaming */
 export async function runVerdict(judgeModel: string, endpointJudge: string, state: AppState) {
@@ -323,12 +323,4 @@ export function initVerdictPhase(state: AppState) {
       }
     });
   }
-
-  // TTS controls
-  $('ttsToggle')?.addEventListener('click', () => toggleTTSEnable(state));
-  $('ttsStopBtn')?.addEventListener('click', () => pauseDebateAudioAndUI(state));
-  $('ttsResumeBtn')?.addEventListener('click', () => resumeDebateAudioAndUI(state));
-  $('ttsToggleVerdict')?.addEventListener('click', () => toggleTTSEnable(state));
-  $('ttsStopBtnVerdict')?.addEventListener('click', () => pauseDebateAudioAndUI(state));
-  $('ttsResumeBtnVerdict')?.addEventListener('click', () => resumeDebateAudioAndUI(state));
 }

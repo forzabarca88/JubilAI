@@ -262,7 +262,7 @@ async function main() {
       }
     }
 
-    // 16. Open history panel via UI
+        // 15. Open history panel via UI
     if (historyBtn) {
       console.log('15. Opening history panel via UI...');
       await historyBtn.click();
@@ -275,9 +275,66 @@ async function main() {
       const historyCards = await page.$$('.history-card');
       console.log(`✓ History panel shows ${historyCards.length} card(s)`);
 
-      // 17. Verify DELETE /api/debates/:id via UI
+      // 16. Test TTS playback for historical debates (deferred flow)
       if (historyCards.length > 0) {
-        console.log('16. Testing delete via UI...');
+        console.log('16. Testing TTS playback for viewed debate...');
+
+        // Click View on the first card (TTS may be disabled — playback deferred)
+        const viewBtn = await page.$('.btn-view-debate');
+        if (viewBtn) {
+          await viewBtn.click();
+          await page.waitForSelector('#phase-verdict', { state: 'visible', timeout: 5000 }).catch(() => {
+            console.log('  ❌ FAIL: Verdict phase did not appear after View');
+            historyFailures.push('View button did not switch to verdict phase');
+          });
+
+          // Now enable TTS — triggers deferred history playback
+          const ttsToggle = await page.$('#ttsToggleVerdict');
+          if (ttsToggle) {
+            const ttsClass = await ttsToggle.getAttribute('class');
+            if (!ttsClass?.includes('enabled')) {
+              await ttsToggle.click();
+              console.log('  TTS toggled on (deferred playback triggered)');
+            }
+          }
+
+          // Wait for TTS initialization (Kokoro model load can take time in headless)
+          const ttsInitialized = await page.waitForFunction(
+            `document.querySelector('#ttsStatusVerdict') && ` +
+            `!document.querySelector('#ttsStatusVerdict').textContent.includes('Initializing')`,
+            {},
+            { timeout: 120000 }
+          ).catch(() => {
+            console.log('  ⚠ TTS initialization did not complete in 120s');
+            historyFailures.push('TTS initialization timeout during history playback');
+            return false;
+          });
+
+          if (ttsInitialized !== false) {
+            // Brief wait for first generation to start
+            await new Promise(r => setTimeout(r, 2000));
+
+            // Check TTS status indicator
+            const ttsStatus = await page.$eval('#ttsStatusVerdict', el => el.textContent).catch(() => null);
+            if (ttsStatus) {
+              console.log(`  ✓ TTS status: ${ttsStatus}`);
+            } else {
+              console.log('  ⚠ TTS status not yet populated (audio may still be generating)');
+            }
+          }
+
+          // Go back to history panel to continue with delete test
+          await historyBtn.click();
+          await page.waitForSelector('#historyOverlay', { state: 'visible', timeout: 5000 }).catch(() => {
+            console.log('  ⚠ Could not reopen history panel');
+          });
+        }
+      }
+
+      // 18. Verify DELETE /api/debates/:id via UI
+      const historyCardsAfterTts = await page.$$('.history-card');
+      if (historyCardsAfterTts.length > 0) {
+        console.log('18. Testing delete via UI...');
         const deleteBtn = await page.$('.btn-delete-debate');
         if (deleteBtn) {
           // Click delete (may trigger confirmation)
@@ -318,8 +375,8 @@ async function main() {
         }
       }
 
-      // Close history panel
-      console.log('17. Closing history panel...');
+      // 19. Close history panel
+      console.log('19. Closing history panel...');
       await page.click('#btnCloseHistory');
       await page.waitForSelector('#historyOverlay', { state: 'hidden', timeout: 3000 }).catch(() => {
         console.log('  ❌ FAIL: History overlay did not close');

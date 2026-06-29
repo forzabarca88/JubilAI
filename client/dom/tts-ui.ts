@@ -6,7 +6,7 @@
 import { getConfig } from '../config';
 import { $ } from './helpers';
 import type { AppState } from '../state/app-state';
-import { ttsManager } from '../tts/manager';
+import { ttsManager, playHistoryAudio } from '../tts/manager';
 
 // TTS status poll interval — read lazily from config
 let _pollInterval: number | null = null;
@@ -27,6 +27,13 @@ export function toggleTTSEnable(state: AppState) {
   updateTTSEnableButton(state);
   if (!state.tts.enabled) {
     stopDebateAudio(state);
+  } else {
+    // Trigger deferred history playback if queued
+    if (state.tts.pendingHistoryPlayback) {
+      const pending = state.tts.pendingHistoryPlayback;
+      state.tts.pendingHistoryPlayback = null;
+      playHistoryAudio(pending.messages, pending.verdict, state);
+    }
   }
 }
 
@@ -140,6 +147,20 @@ export function stopTTSStatusPoll() {
 function stopDebateAudio(state: AppState) {
   ttsManager.stopAudio();
   state.tts.paused = false;
+}
+
+/**
+ * Initialize TTS button event listeners (called once at app startup).
+ * TTS buttons are global UI elements shared across all phases,
+ * so listeners are registered here to avoid duplicate handlers.
+ */
+export function initTTSEvents(state: AppState) {
+  $('ttsToggle')?.addEventListener('click', () => toggleTTSEnable(state));
+  $('ttsStopBtn')?.addEventListener('click', () => pauseDebateAudioAndUI(state));
+  $('ttsResumeBtn')?.addEventListener('click', () => resumeDebateAudioAndUI(state));
+  $('ttsToggleVerdict')?.addEventListener('click', () => toggleTTSEnable(state));
+  $('ttsStopBtnVerdict')?.addEventListener('click', () => pauseDebateAudioAndUI(state));
+  $('ttsResumeBtnVerdict')?.addEventListener('click', () => resumeDebateAudioAndUI(state));
 }
 
 /** Pause audio playback */

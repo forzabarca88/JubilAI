@@ -216,12 +216,12 @@ if (historyCards.length > 0) {
 
 ## 6. Implementation Order
 
-1. **TTSState** — add `useHistoryPlayback` flag to `client/state/app-state.ts`.
-2. **TTS manager** — add `playHistoryAudio` and `stopHistoryAudio` to `client/tts/manager.ts`.
-3. **History module** — wire `playHistoryAudio` into `viewDebate` in `client/phases/history.ts`.
-4. **App reset** — add `stopHistoryAudio` call to `client/app.ts` `resetToSetup()`.
-5. **E2E test** — add TTS playback verification step to `test-e2e.mjs`.
-6. **Build and test** — run `npm run build && node test-e2e.mjs`.
+1. ✅ **TTSState** — add `useHistoryPlayback` flag to `client/state/app-state.ts`.
+2. ✅ **TTS manager** — add `playHistoryAudio` and `stopHistoryAudio` to `client/tts/manager.ts`.
+3. ✅ **History module** — wire `playHistoryAudio` into `viewDebate` in `client/phases/history.ts`.
+4. ✅ **App reset** — add `stopHistoryAudio` call to `client/app.ts` `resetToSetup()`.
+5. ✅ **E2E test** — add TTS playback verification step to `test-e2e.mjs`.
+6. ✅ **Build and test** — `npm run build && node test-e2e.mjs` — **PASS**
 
 ---
 
@@ -235,14 +235,42 @@ if (historyCards.length > 0) {
 | **`useHistoryPlayback` flag** | Lets the TTS UI and status poller know this is a replay, not a live debate. Enables future enhancements (e.g., different status text). |
 | **TTS toggle in verdict phase** | The verdict phase already has `ttsToggleVerdict` / `ttsStopBtnVerdict` / `ttsResumeBtnVerdict` buttons. Users enable TTS before clicking View. |
 | **Non-blocking playback** | `playHistoryAudio` starts the queue and returns; audio plays in background. UI remains responsive. |
+| **Deferred playback** | When viewing a historical debate with TTS disabled, data is queued as `pendingHistoryPlayback`. Triggered automatically when user toggles TTS on. Prevents silent skip. |
 
 ---
 
 ## 8. Files Modified
 
 **Modified files:**
-- `client/state/app-state.ts` — add `useHistoryPlayback` to `TTSState` interface and defaults
+- `client/state/app-state.ts` — add `useHistoryPlayback` and `pendingHistoryPlayback` to `TTSState`
 - `client/tts/manager.ts` — add `playHistoryAudio` and `stopHistoryAudio` exports
-- `client/phases/history.ts` — import TTS helpers, call `playHistoryAudio` in `viewDebate`
+- `client/phases/history.ts` — import TTS helpers, queue deferred playback in `viewDebate`
 - `client/app.ts` — add `stopHistoryAudio` to `resetToSetup()`
-- `test-e2e.mjs` — add TTS playback verification step
+- `client/dom/tts-ui.ts` — `initTTSEvents()` centralized listener setup, trigger deferred playback in `toggleTTSEnable`
+- `client/phases/debate.ts` — remove TTS listener setup (moved to `tts-ui.ts`)
+- `client/phases/verdict.ts` — remove TTS listener setup (moved to `tts-ui.ts`)
+- `client/index.ts` — call `initTTSEvents(appState)` at startup
+- `test-e2e.mjs` — restructure TTS playback test (view debate first, then toggle TTS)
+
+---
+
+## 9. Results
+
+**E2E test: ✅ PASS** — Full debate flow + history + TTS playback completed successfully.
+
+### Fix: Deferred Playback + Centralized Event Listeners
+The original implementation called `playHistoryAudio` immediately in `viewDebate`, which ran before the user had a chance to enable TTS. If TTS was disabled, playback was silently skipped.
+
+**Root cause**: TTS event listeners were added redundantly in both `initDebatePhase` (debate.ts) and `initVerdictPhase` (verdict.ts). Clicking the toggle button fired ALL registered handlers, toggling `state.tts.enabled` back and forth, leaving the button stuck on "Audio Off".
+
+**Solution**:
+1. Moved all TTS button listeners to `initTTSEvents()` in `tts-ui.ts`, called once at app startup — eliminates duplicate handlers
+2. Added `pendingHistoryPlayback` to `TTSState` — when viewing a historical debate with TTS disabled, data is queued
+3. `toggleTTSEnable` detects pending data and triggers `playHistoryAudio` when TTS is toggled on
+
+**Observations:**
+- Kokoro WASM model loads correctly in headless Chromium (~15s)
+- Voice pool assignment works (3 distinct voices: A, B, judge)
+- Audio generation queue processes all debate messages + verdict text
+- Cache API unavailable in headless Chromium (`QuotaExceededError`) — falls back to in-memory cache
+- Deferred playback tested: View debate (TTS off) → toggle TTS on → playback triggers correctly

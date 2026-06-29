@@ -26,6 +26,11 @@ export interface TTSState {
   speakerVoices: Record<string, string>;
   activeSpeaker: Speaker | 'judge' | null;
   paused: boolean;
+  useHistoryPlayback: boolean;
+  pendingHistoryPlayback: {
+    messages: { speaker: Speaker; content: string }[];
+    verdict: string | null;
+  } | null;
 }
 
 export interface DebateData {
@@ -65,6 +70,8 @@ export class AppState {
     speakerVoices: {},
     activeSpeaker: null,
     paused: false,
+    useHistoryPlayback: false,
+    pendingHistoryPlayback: null,
   };
 
   // Advanced settings
@@ -102,6 +109,8 @@ export class AppState {
       speakerVoices: {},
       activeSpeaker: null,
       paused: false,
+      useHistoryPlayback: false,
+      pendingHistoryPlayback: null,
     };
 
     this.advancedSettings = {

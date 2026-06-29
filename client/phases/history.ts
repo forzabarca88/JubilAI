@@ -5,6 +5,8 @@
 
 import { $, showToast, showPhase } from '../dom/helpers';
 import { apiClient } from '../api/client';
+import { playHistoryAudio, stopHistoryAudio } from '../tts/manager';
+import { updateTTSEnableButton } from '../dom/tts-ui';
 import type { AppState } from '../state/app-state';
 import type { SavedDebateSummary, DebatesListResponse, DebateStateResponse } from '../../shared/types/api';
 import type { Message, DebatePhase } from '../../shared/types/debate';
@@ -162,6 +164,25 @@ export async function viewDebate(id: string, state: AppState): Promise<void> {
 
     // Render in verdict phase
     renderViewedVerdict(data);
+
+    // Sync TTS enabled state from the verdict toggle button
+    const ttsToggle = $('ttsToggleVerdict');
+    if (ttsToggle) {
+      state.tts.enabled = ttsToggle.classList.contains('enabled');
+    }
+    updateTTSEnableButton(state);
+
+    // Start TTS playback if enabled, otherwise queue for later
+    const historyMessages = data.messages.map(m => ({ speaker: m.speaker, content: m.content }));
+    if (state.tts.enabled) {
+      await playHistoryAudio(historyMessages, data.verdict, state);
+    } else {
+      // Queue for deferred playback — triggers when user enables TTS
+      state.tts.pendingHistoryPlayback = {
+        messages: historyMessages,
+        verdict: data.verdict,
+      };
+    }
 
     showToast(`Loaded debate: "${data.statement.slice(0, 40)}..."`, 'info');
   } catch (err) {
