@@ -33,6 +33,21 @@ Once the dust settles (usually after 3 rounds of intense back-and-forth), the Ju
 - Conciseness vs. Verbosity
 - **The Winner**: A final declaration of who reigned supreme in the digital arena.
 
+### 📜 Debate History
+Your past debates don't vanish into the void. A **History panel** (accessible from the nav bar) lets you browse all your completed debates, view full transcripts, and replay them with TTS audio. Debates are persisted to disk as JSON files — survive browser refreshes, server restarts, whatever. You can also delete old debates to keep things tidy.
+
+### 💾 Persistent Storage
+Completed debates are automatically saved to a platform-appropriate directory (`~/.local/share/jubilai_debates` on Linux, `~/Library/Application Support/jubilai_debates` on macOS, `%APPDATA%\jubilai_debates` on Windows). Override with the `DEBATE_FILES_DIR` environment variable. The server loads saved debates back into memory on startup.
+
+### 🔒 Session Restore
+Close the browser, walk away, come back — your setup is waiting. Session state (endpoint URLs, model choices, the debate statement) is saved to your browser using **encrypted** storage (AES-256-GCM via IndexedDB on HTTPS/localhost). On HTTP connections a plaintext fallback stores only non-sensitive config; API keys are **never** stored in plaintext.
+
+### ⚙️ Advanced Settings
+Tweak the debate to your liking. The collapsible **Advanced Settings** panel lets you:
+- Write **custom system prompts** for the Affirmative, Negative, and Judge (override the built-in defaults)
+- Adjust **debater parameters**: temperature (default `0.7`), top P, top K, max tokens
+- Adjust **judge parameters**: temperature (default `0.5`), top P, top K, max tokens
+
 ### 🛠️ The "Just Let Me Play" Mode (Mock Server)
 Want to see the magic without setting up your own LLM endpoints? Flip the switch to **Mock Mode**. It uses pre-written, "baked-in" debate content so you can experience the UI, the TTS, and the flow of the debate instantly.
 
@@ -49,11 +64,32 @@ Want to see the magic without setting up your own LLM endpoints? Flip the switch
 Don't feel like wrestling with Node versions or dependency hell? **Docker** has your back.
 
 ```bash
-docker build -t jubilai .
+npm run build:docker
 docker run -d -p 3000:3000 --name jubilai jubilai
 ```
 
 Boom. Arena's up. Point your browser to `http://localhost:3000` and start debating.
+
+Need to customize the storage location inside the container?
+```bash
+docker run -d -p 3000:3000 -v ./my_debates:/root/.local/share/jubilai_debates --name jubilai jubilai
+```
+
+---
+
+## ⚙️ Configuration
+
+Everything is controlled by `config.json`. Key sections:
+
+- **`app`** — Server ports (`realPort: 3000`, `mockPort: 3001`), bind host
+- **`debate`** — Max turns per side (default `3`), auto-advance/judge delays, winner detection pattern
+- **`llm`** — Default temperature, top P, top K, max tokens for debaters and judge
+- **`prompts`** — Built-in system prompts for Affirmative, Negative, and Judge (prose format enforced, penalizes lists and repetition)
+- **`tts`** — Kokoro model ID, quantization (`q4`), WASM device, 28-voice pool (American + British English), sentence buffer cap
+- **`debateStorage`** — Disk storage directory name, max list count
+- **`session`** — IndexedDB database name, localStorage keys for encrypted/plaintext session
+- **`ui`** — Toast auto-dismiss timing, phase IDs
+- **`mock`** — Stream chunk size, delays, fake model list
 
 ---
 
