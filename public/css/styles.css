@@ -519,7 +519,7 @@ input[type="text"], input[type="password"], select {
 
 .advanced-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 1rem;
 }
 
@@ -623,7 +623,7 @@ input[type="text"], input[type="password"], select {
 
 @media (max-width: 1100px) {
   .advanced-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr;
   }
   .advanced-prompt-group.judge-prompt {
     grid-column: 1 / -1;
@@ -930,16 +930,12 @@ input[type="text"], input[type="password"], select {
 }
 
 /* Kiosk Mode — hide configuration UI, show only statement + start */
+.setup-config-section {
+  display: contents;
+}
+
 html[data-kiosk="true"] .setup-config-section {
   display: none;
-}
-
-html[data-kiosk="true"] #phase-setup .briefing-grid {
-  display: block;
-}
-
-html[data-kiosk="true"] #phase-setup .briefing-card {
-  grid-column: span 1;
 }
 
 html[data-kiosk="true"] .arena-nav #btnHistory {
