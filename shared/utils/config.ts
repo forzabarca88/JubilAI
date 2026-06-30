@@ -8,6 +8,39 @@ const CONFIG_PATH = path.resolve(process.cwd(), 'config.json');
 
 let _config: RootConfig | null = null;
 
+/** Overlay environment variables onto the kiosk config section */
+function resolveKioskConfig(parsed: RootConfig): void {
+  const env = process.env;
+  const k = parsed.kiosk;
+
+  k.enabled = env.JUBILAI_KIOSK_MODE === 'true';
+
+  if (k.enabled) {
+    k.endpointA = env.JUBILAI_KIOSK_ENDPOINT_A ?? k.endpointA;
+    k.apiKeyA = env.JUBILAI_KIOSK_API_KEY_A ?? k.apiKeyA;
+    k.modelA = env.JUBILAI_KIOSK_MODEL_A ?? k.modelA;
+    k.endpointB = env.JUBILAI_KIOSK_ENDPOINT_B ?? k.endpointB;
+    k.apiKeyB = env.JUBILAI_KIOSK_API_KEY_B ?? k.apiKeyB;
+    k.modelB = env.JUBILAI_KIOSK_MODEL_B ?? k.modelB;
+    k.endpointJudge = env.JUBILAI_KIOSK_ENDPOINT_JUDGE ?? k.endpointJudge;
+    k.apiKeyJudge = env.JUBILAI_KIOSK_API_KEY_JUDGE ?? k.apiKeyJudge;
+    k.modelJudge = env.JUBILAI_KIOSK_MODEL_JUDGE ?? k.modelJudge;
+    k.promptA = env.JUBILAI_KIOSK_PROMPT_A ?? k.promptA;
+    k.promptB = env.JUBILAI_KIOSK_PROMPT_B ?? k.promptB;
+    k.promptJudge = env.JUBILAI_KIOSK_PROMPT_JUDGE ?? k.promptJudge;
+    k.maxTurns = env.JUBILAI_KIOSK_MAX_TURNS ? parseInt(env.JUBILAI_KIOSK_MAX_TURNS, 10) : k.maxTurns;
+
+    k.temperature = env.JUBILAI_KIOSK_TEMPERATURE ? parseFloat(env.JUBILAI_KIOSK_TEMPERATURE) : k.temperature;
+    k.topP = env.JUBILAI_KIOSK_TOP_P ? parseFloat(env.JUBILAI_KIOSK_TOP_P) : k.topP;
+    k.topK = env.JUBILAI_KIOSK_TOP_K ? parseInt(env.JUBILAI_KIOSK_TOP_K, 10) : k.topK;
+    k.maxTokens = env.JUBILAI_KIOSK_MAX_TOKENS ? parseInt(env.JUBILAI_KIOSK_MAX_TOKENS, 10) : k.maxTokens;
+    k.judgeTemperature = env.JUBILAI_KIOSK_JUDGE_TEMPERATURE ? parseFloat(env.JUBILAI_KIOSK_JUDGE_TEMPERATURE) : k.judgeTemperature;
+    k.judgeTopP = env.JUBILAI_KIOSK_JUDGE_TOP_P ? parseFloat(env.JUBILAI_KIOSK_JUDGE_TOP_P) : k.judgeTopP;
+    k.judgeTopK = env.JUBILAI_KIOSK_JUDGE_TOP_K ? parseInt(env.JUBILAI_KIOSK_JUDGE_TOP_K, 10) : k.judgeTopK;
+    k.judgeMaxTokens = env.JUBILAI_KIOSK_JUDGE_MAX_TOKENS ? parseInt(env.JUBILAI_KIOSK_JUDGE_MAX_TOKENS, 10) : k.judgeMaxTokens;
+  }
+}
+
 /**
  * Load config from config.json and validate required fields.
  * Returns the typed config singleton.
@@ -17,6 +50,9 @@ function loadConfig(): RootConfig {
 
   const raw = fs.readFileSync(CONFIG_PATH, 'utf-8');
   const parsed: RootConfig = JSON.parse(raw);
+
+  // Resolve environment variable overrides for kiosk mode
+  resolveKioskConfig(parsed);
 
   // Runtime validation
   const required: [string, () => boolean][] = [
@@ -50,6 +86,21 @@ function loadConfig(): RootConfig {
   for (const [field, check] of required) {
     if (!check()) {
       throw new Error(`Config validation failed: '${field}' is missing or invalid`);
+    }
+  }
+
+  // Kiosk mode validation — required fields when enabled
+  if (parsed.kiosk.enabled) {
+    const kioskRequired: [string, () => boolean][] = [
+      ['kiosk.endpointA', () => typeof parsed.kiosk.endpointA === 'string' && parsed.kiosk.endpointA.length > 0],
+      ['kiosk.modelA', () => typeof parsed.kiosk.modelA === 'string' && parsed.kiosk.modelA.length > 0],
+      ['kiosk.endpointB', () => typeof parsed.kiosk.endpointB === 'string' && parsed.kiosk.endpointB.length > 0],
+      ['kiosk.modelB', () => typeof parsed.kiosk.modelB === 'string' && parsed.kiosk.modelB.length > 0],
+    ];
+    for (const [field, check] of kioskRequired) {
+      if (!check()) {
+        throw new Error(`Config validation failed: kiosk mode enabled but '${field}' is missing or empty`);
+      }
     }
   }
 

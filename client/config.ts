@@ -3,7 +3,7 @@
  * Fetches config.json from the server at runtime and exposes typed config.
  */
 
-import type { AppConfig, DebateConfig, LLMConfig, TTSConfig, SessionConfig, UIConfig, MockConfig } from '../shared/types/config';
+import type { AppConfig, DebateConfig, LLMConfig, TTSConfig, SessionConfig, UIConfig, KioskConfig, MockConfig } from '../shared/types/config';
 
 export interface ClientConfig {
   app: AppConfig;
@@ -17,6 +17,7 @@ export interface ClientConfig {
   tts: TTSConfig;
   session: SessionConfig;
   ui: UIConfig;
+  kiosk: KioskConfig;
   mock: MockConfig;
 }
 

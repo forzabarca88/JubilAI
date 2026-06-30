@@ -12,6 +12,9 @@ import { runVerdict } from './verdict';
 
 /** Transition to the judge-select phase */
 export async function transitionToJudgeSelect(state: AppState) {
+  // Skip in kiosk mode — the phase DOM is hidden via CSS
+  if (getConfig().kiosk.enabled) return;
+
   showPhase('phase-judge-select');
   const js = $('judgeStatement');
   if (js) js.textContent = `"${state.debateData!.statement}"`;

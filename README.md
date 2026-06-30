@@ -48,6 +48,30 @@ Tweak the debate to your liking. The collapsible **Advanced Settings** panel let
 - Adjust **debater parameters**: temperature (default `0.7`), top P, top K, max tokens
 - Adjust **judge parameters**: temperature (default `0.5`), top P, top K, max tokens
 
+### 🎪 Kiosk Mode (The "Just Show Me" Mode)
+Want to deploy jubilAI on a public display, a conference booth, or a classroom screen? **Kiosk Mode** strips away all the configuration UI and leaves you with a clean interface: just a statement textarea and a big "Start Debate" button. Everything else — endpoints, API keys, model choices, judge settings, advanced parameters — is pre-configured on the server.
+
+Turn it on by setting environment variables:
+```bash
+JUBILAI_KIOSK_MODE=true \
+JUBILAI_KIOSK_ENDPOINT_A=http://localhost:11434 \
+JUBILAI_KIOSK_API_KEY_A=sk-abc123 \
+JUBILAI_KIOSK_MODEL_A=llama3.1 \
+JUBILAI_KIOSK_ENDPOINT_B=http://localhost:8080 \
+JUBILAI_KIOSK_API_KEY_B=sk-def456 \
+JUBILAI_KIOSK_MODEL_B=mixtral-8x7b \
+npm start
+```
+
+API keys are optional — if you're using local endpoints that don't require auth, skip them. You can also pre-configure a judge (`JUBILAI_KIOSK_ENDPOINT_JUDGE`, `JUBILAI_KIOSK_API_KEY_JUDGE`, `JUBILAI_KIOSK_MODEL_JUDGE`) and custom prompts or inference parameters (`JUBILAI_KIOSK_TEMPERATURE`, `JUBILAI_KIOSK_MAX_TOKENS`, etc.).
+
+In kiosk mode:
+- **Configuration UI is hidden** — no endpoints, models, or advanced settings visible
+- **History panel is disabled** — no browsing past debates from the UI
+- **Session restore is skipped** — config comes from the server, not the browser
+- **Judge-select phase is skipped** — if no judge is pre-configured, the debate completes without a verdict
+- **"New Dispute" preserves config** — resets the statement but keeps all server-provided settings
+
 ### 🛠️ The "Just Let Me Play" Mode (Mock Server)
 Want to see the magic without setting up your own LLM endpoints? Flip the switch to **Mock Mode**. It uses pre-written, "baked-in" debate content so you can experience the UI, the TTS, and the flow of the debate instantly.
 
@@ -89,7 +113,7 @@ Everything is controlled by `config.json`. Key sections:
 - **`debateStorage`** — Disk storage directory name, max list count
 - **`session`** — IndexedDB database name, localStorage keys for encrypted/plaintext session
 - **`ui`** — Toast auto-dismiss timing, phase IDs
-- **`mock`** — Stream chunk size, delays, fake model list
+- **`kiosk`** — Kiosk mode toggle (`enabled`), pre-configured endpoints, API keys, models, custom prompts, inference parameters, and max turns. When enabled, the UI shows only the statement textarea and a Start button. All `JUBILAI_KIOSK_*` environment variables overlay these values at runtime.
 
 ---
 

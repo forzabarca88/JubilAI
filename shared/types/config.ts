@@ -63,6 +63,31 @@ export interface UIConfig {
   phases: string[];
 }
 
+export interface KioskConfig {
+  enabled: boolean;
+  endpointA: string;
+  apiKeyA: string;
+  modelA: string;
+  endpointB: string;
+  apiKeyB: string;
+  modelB: string;
+  endpointJudge: string;
+  apiKeyJudge: string;
+  modelJudge: string;
+  promptA: string;
+  promptB: string;
+  promptJudge: string;
+  temperature: number | null;
+  topP: number | null;
+  topK: number | null;
+  maxTokens: number | null;
+  judgeTemperature: number | null;
+  judgeTopP: number | null;
+  judgeTopK: number | null;
+  judgeMaxTokens: number | null;
+  maxTurns: number | null;
+}
+
 export interface MockConfig {
   streamChunkSize: number;
   streamDelayMs: number;
@@ -81,5 +106,6 @@ export interface RootConfig {
   session: SessionConfig;
   debateStorage: DebateStorageConfig;
   ui: UIConfig;
+  kiosk: KioskConfig;
   mock: MockConfig;
 }

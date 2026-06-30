@@ -3,9 +3,11 @@
 import express, { Express } from 'express';
 import cors from 'cors';
 import path from 'path';
+import fs from 'fs';
 import routes from './routes';
+import type { RootConfig } from '../shared/types/config';
 
-export function createApp(): Express {
+export function createApp(config: RootConfig): Express {
   const app = express();
 
   // Middleware
@@ -19,13 +21,24 @@ export function createApp(): Express {
     next();
   });
 
+  // Route handlers registered BEFORE express.static to take priority
+  // Serve config.json to the frontend (with env overrides applied)
+  app.get('/config.json', (req, res) => {
+    res.json(config);
+  });
+
+  // In kiosk mode, serve HTML with data-kiosk attribute injected
+  if (config.kiosk.enabled) {
+    const htmlPath = path.join(process.cwd(), 'public/index.html');
+    app.get('/', (req, res) => {
+      let html = fs.readFileSync(htmlPath, 'utf-8');
+      html = html.replace('<html lang="en" data-kiosk="false">', '<html lang="en" data-kiosk="true">');
+      res.type('html').send(html);
+    });
+  }
+
   app.use(express.static('public'));
   app.use('/dist', express.static('dist'));
-
-  // Serve config.json to the frontend
-  app.get('/config.json', (req, res) => {
-    res.sendFile(path.join(__dirname, '../../../config.json'));
-  });
 
   // Mount API routes
   app.use('/api', routes);
