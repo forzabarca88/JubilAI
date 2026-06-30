@@ -21,9 +21,7 @@ export function createApp(config: RootConfig): Express {
     next();
   });
 
-  app.use(express.static('public'));
-  app.use('/dist', express.static('dist'));
-
+  // Route handlers registered BEFORE express.static to take priority
   // Serve config.json to the frontend (with env overrides applied)
   app.get('/config.json', (req, res) => {
     res.json(config);
@@ -31,13 +29,16 @@ export function createApp(config: RootConfig): Express {
 
   // In kiosk mode, serve HTML with data-kiosk attribute injected
   if (config.kiosk.enabled) {
-    const htmlPath = path.join(__dirname, '../../public/index.html');
+    const htmlPath = path.join(process.cwd(), 'public/index.html');
     app.get('/', (req, res) => {
       let html = fs.readFileSync(htmlPath, 'utf-8');
       html = html.replace('<html lang="en" data-kiosk="false">', '<html lang="en" data-kiosk="true">');
       res.type('html').send(html);
     });
   }
+
+  app.use(express.static('public'));
+  app.use('/dist', express.static('dist'));
 
   // Mount API routes
   app.use('/api', routes);
