@@ -35,7 +35,7 @@ Add an optional "kiosk mode" where the user sees **only** the debate statement t
 
 ## Implementation Steps
 
-### Step 1: Extend `config.json` and shared types
+### Step 1: Extend `config.json` and shared types ✅ DONE
 
 **File: `config.json`** — Add a new `kiosk` section:
 
@@ -99,7 +99,7 @@ Add `kiosk: KioskConfig` to `RootConfig`.
 
 **File: `client/config.ts`** — Add `kiosk: KioskConfig` to `ClientConfig`.
 
-### Step 2: Server-side config resolution from environment variables
+### Step 2: Server-side config resolution from environment variables ✅ DONE
 
 **File: `shared/utils/config.ts`** — After parsing `config.json`, overlay environment variables onto the `kiosk` section:
 
@@ -140,7 +140,7 @@ function resolveKioskConfig(parsed: RootConfig): void {
 
 Call `resolveKioskConfig(parsed)` inside `loadConfig()` before validation. Add validation for required kiosk fields (`endpointA`, `modelA`, `endpointB`, `modelB`) when `kiosk.enabled === true`.
 
-### Step 3: HTML — Add kiosk-mode class and conditional visibility
+### Step 3: HTML — Add kiosk-mode class and conditional visibility ✅ DONE
 
 **File: `public/index.html`** — Add `data-kiosk="false"` attribute to `<html>` (set dynamically by the server). Wrap non-kiosk elements in a container with a CSS class that hides them when kiosk mode is active.
 
@@ -187,13 +187,13 @@ if (config.kiosk.enabled) {
 }
 ```
 
-### Step 4: Client config — Pass kiosk flag to the frontend
+### Step 4: Client config — Pass kiosk flag to the frontend ✅ DONE
 
 **File: `client/config.ts`** — The `ClientConfig` already includes `kiosk: KioskConfig` from the `/config.json` endpoint. The server's `config.json` response already includes the resolved kiosk config (env-overridden).
 
 **File: `client/index.ts`** — After `loadConfig()` resolves, check `getConfig().kiosk.enabled`. If true, call a new `initKioskMode(appState)` before initializing normal phases.
 
-### Step 5: Client kiosk initialization
+### Step 5: Client kiosk initialization ✅ DONE
 
 **New file: `client/phases/kiosk.ts`** — Contains `initKioskMode(state: AppState)`:
 
@@ -251,7 +251,7 @@ export function initKioskMode(state: AppState) {
 }
 ```
 
-### Step 6: Modify `checkSetupReady` for kiosk mode
+### Step 6: Modify `checkSetupReady` for kiosk mode ✅ DONE
 
 **File: `client/phases/setup.ts`** — In `checkSetupReady(state)`, add an early return when kiosk mode is active:
 
@@ -273,7 +273,7 @@ function checkSetupReady(state: AppState) {
 }
 ```
 
-### Step 7: Modify the "Start Debate" click handler for kiosk mode
+### Step 7: Modify the "Start Debate" click handler for kiosk mode ✅ DONE
 
 **File: `client/phases/setup.ts`** — In the `btnStartDebate` click handler, detect kiosk mode and construct the `DebateCreateBody` from config instead of DOM:
 
@@ -335,15 +335,15 @@ $('btnStartDebate')?.addEventListener('click', async () => {
 });
 ```
 
-### Step 8: Disable session storage in kiosk mode
+### Step 8: Disable session storage in kiosk mode ✅ DONE
 
 **File: `client/session/session-storage.ts`** — In `save()` and `restore()`, skip entirely when `getConfig().kiosk.enabled` is true. Kiosk deployments don't need cross-session persistence, and storing API keys in browser storage defeats the purpose of server-side management.
 
-### Step 9: Disable history panel in kiosk mode
+### Step 9: Disable history panel in kiosk mode ✅ DONE
 
 **File: `client/phases/history.ts`** — In `initHistoryPanel()`, return early if `getConfig().kiosk.enabled`. Also hide the nav history button via CSS (Step 3).
 
-### Step 10: Handle "New Dispute" / reset in kiosk mode
+### Step 10: Handle "New Dispute" / reset in kiosk mode ✅ DONE
 
 **File: `client/app.ts`** — In `resetToSetup()`, when kiosk mode is active:
 - Do NOT clear kiosk-provided state fields (`debateData.modelA`, `debateData.endpointA`, etc.)
@@ -352,11 +352,11 @@ $('btnStartDebate')?.addEventListener('click', async () => {
 - Reset the statement textarea to empty
 - Re-apply kiosk config values to state
 
-### Step 11: Skip judge-select phase in kiosk mode (when judge is pre-configured)
+### Step 11: Skip judge-select phase in kiosk mode (when judge is pre-configured) ✅ DONE
 
 **File: `client/phases/debate.ts`** — In the `executeNextTurn` handler, when `data.debateComplete` and `data.autoJudge` is true, proceed directly to verdict. When `data.autoJudge` is false (no judge pre-configured), the existing `transitionToJudgeSelect` path is still valid since the judge-select phase DOM is hidden in kiosk mode — but the behavior should be: if kiosk mode is active AND no judge is pre-configured, show a toast "No judge configured — debate complete" and stay on the debate phase instead of transitioning to a hidden judge-select phase.
 
-### Step 12: Server-side config.json endpoint includes kiosk config
+### Step 12: Server-side config.json endpoint includes kiosk config ✅ DONE
 
 **File: `server/app.ts`** — The existing `/config.json` route serves the file directly. Change it to serve the resolved config (with env overrides applied):
 

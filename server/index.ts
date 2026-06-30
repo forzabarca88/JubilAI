@@ -4,7 +4,7 @@ import { createApp } from './app';
 import config from '../shared/utils/config';
 import { loadPersistedDebates } from '../shared/middleware/debates';
 
-const app = createApp();
+const app = createApp(config);
 loadPersistedDebates();
 const PORT = parseInt(process.env.PORT || String(config.app.realPort), 10);
 const HOST = config.app.host;

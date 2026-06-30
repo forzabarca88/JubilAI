@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-kiosk="false">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -35,119 +35,121 @@
         <textarea id="statement" placeholder='e.g., "Human consciousness is an emergent property of biological complexity."'></textarea>
       </div>
 
-      <div class="briefing-card side-card">
-        <h3 class="side-header affirmative">The Affirmative</h3>
-        <p class="side-subtitle">Argues the statement is TRUE</p>
-        <div class="input-group">
-          <input type="text" id="endpointA" placeholder="Endpoint URL">
-          <input type="password" id="apiKeyA" placeholder="API Key (Optional)">
-          <select id="modelA" disabled><option value="">— Fetch Models —</option></select>
+      <div class="setup-config-section briefing-grid">
+        <div class="briefing-card side-card">
+          <h3 class="side-header affirmative">The Affirmative</h3>
+          <p class="side-subtitle">Argues the statement is TRUE</p>
+          <div class="input-group">
+            <input type="text" id="endpointA" placeholder="Endpoint URL">
+            <input type="password" id="apiKeyA" placeholder="API Key (Optional)">
+            <select id="modelA" disabled><option value="">— Fetch Models —</option></select>
+          </div>
+          <button class="btn btn-ghost" id="btnFetchA">Synchronize Models</button>
+          <div id="modelsA" class="hidden"><div class="helper-text" id="modelsAInfo"></div></div>
         </div>
-        <button class="btn btn-ghost" id="btnFetchA">Synchronize Models</button>
-        <div id="modelsA" class="hidden"><div class="helper-text" id="modelsAInfo"></div></div>
-      </div>
 
-      <div class="briefing-card side-card">
-        <h3 class="side-header negative">The Negative</h3>
-        <p class="side-subtitle">Argues the statement is FALSE</p>
-        <div class="input-group">
-          <input type="text" id="endpointB" placeholder="Endpoint URL">
-          <input type="password" id="apiKeyB" placeholder="API Key (Optional)">
-          <select id="modelB" disabled><option value="">— Fetch Models —</option></select>
+        <div class="briefing-card side-card">
+          <h3 class="side-header negative">The Negative</h3>
+          <p class="side-subtitle">Argues the statement is FALSE</p>
+          <div class="input-group">
+            <input type="text" id="endpointB" placeholder="Endpoint URL">
+            <input type="password" id="apiKeyB" placeholder="API Key (Optional)">
+            <select id="modelB" disabled><option value="">— Fetch Models —</option></select>
+          </div>
+          <button class="btn btn-ghost" id="btnFetchB">Synchronize Models</button>
+          <div id="modelsB" class="hidden"><div class="helper-text" id="modelsBInfo"></div></div>
         </div>
-        <button class="btn btn-ghost" id="btnFetchB">Synchronize Models</button>
-        <div id="modelsB" class="hidden"><div class="helper-text" id="modelsBInfo"></div></div>
-      </div>
 
-      <div class="briefing-card full-width judge-card">
-        <h3 class="side-header judge">Optional: Pre-configured Judge</h3>
-        <p class="side-subtitle">Auto-judge after the final turn. Leave blank to select later.</p>
-        <div class="input-group">
-          <input type="text" id="endpointJudge" placeholder="Judge Endpoint URL">
-          <input type="password" id="apiKeyJudge" placeholder="Judge API Key (Optional)">
-          <select id="judgeModelSelect" disabled><option value="">— Fetch Models —</option></select>
+        <div class="briefing-card full-width judge-card">
+          <h3 class="side-header judge">Optional: Pre-configured Judge</h3>
+          <p class="side-subtitle">Auto-judge after the final turn. Leave blank to select later.</p>
+          <div class="input-group">
+            <input type="text" id="endpointJudge" placeholder="Judge Endpoint URL">
+            <input type="password" id="apiKeyJudge" placeholder="Judge API Key (Optional)">
+            <select id="judgeModelSelect" disabled><option value="">— Fetch Models —</option></select>
+          </div>
+          <button class="btn btn-ghost" id="btnFetchJudge">Synchronize Models</button>
+          <div id="modelsJudge" class="hidden"><div class="helper-text" id="modelsJudgeInfo"></div></div>
         </div>
-        <button class="btn btn-ghost" id="btnFetchJudge">Synchronize Models</button>
-        <div id="modelsJudge" class="hidden"><div class="helper-text" id="modelsJudgeInfo"></div></div>
-      </div>
 
-      <!-- Advanced Settings (Collapsible) -->
-      <div class="briefing-card full-width advanced-settings-card">
-        <button class="btn btn-ghost advanced-toggle" id="btnAdvancedToggle">
-          ⚙️ Advanced Settings
-        </button>
-        <div id="advancedSettingsPanel" class="hidden">
-          <div class="advanced-section">
-            <h4 class="advanced-section-title">System Prompts</h4>
-            <div class="advanced-grid">
-              <div class="advanced-prompt-group">
-                <label class="advanced-label affirmative-prompt">Affirmative Prompt</label>
-                <textarea id="promptA" class="advanced-textarea" placeholder="Custom system prompt for the affirmative debater..."></textarea>
-                <button class="btn btn-sm btn-ghost">Reset to default</button>
-              </div>
-              <div class="advanced-prompt-group">
-                <label class="advanced-label negative-prompt">Negative Prompt</label>
-                <textarea id="promptB" class="advanced-textarea" placeholder="Custom system prompt for the negative debater..."></textarea>
-                <button class="btn btn-sm btn-ghost">Reset to default</button>
-              </div>
-              <div class="advanced-prompt-group judge-prompt">
-                <label class="advanced-label judge-prompt-label">Judge Prompt</label>
-                <textarea id="promptJudge" class="advanced-textarea" placeholder="Custom system prompt for the judge..."></textarea>
-                <button class="btn btn-sm btn-ghost">Reset to default</button>
+        <!-- Advanced Settings (Collapsible) -->
+        <div class="briefing-card full-width advanced-settings-card">
+          <button class="btn btn-ghost advanced-toggle" id="btnAdvancedToggle">
+            ⚙️ Advanced Settings
+          </button>
+          <div id="advancedSettingsPanel" class="hidden">
+            <div class="advanced-section">
+              <h4 class="advanced-section-title">System Prompts</h4>
+              <div class="advanced-grid">
+                <div class="advanced-prompt-group">
+                  <label class="advanced-label affirmative-prompt">Affirmative Prompt</label>
+                  <textarea id="promptA" class="advanced-textarea" placeholder="Custom system prompt for the affirmative debater..."></textarea>
+                  <button class="btn btn-sm btn-ghost">Reset to default</button>
+                </div>
+                <div class="advanced-prompt-group">
+                  <label class="advanced-label negative-prompt">Negative Prompt</label>
+                  <textarea id="promptB" class="advanced-textarea" placeholder="Custom system prompt for the negative debater..."></textarea>
+                  <button class="btn btn-sm btn-ghost">Reset to default</button>
+                </div>
+                <div class="advanced-prompt-group judge-prompt">
+                  <label class="advanced-label judge-prompt-label">Judge Prompt</label>
+                  <textarea id="promptJudge" class="advanced-textarea" placeholder="Custom system prompt for the judge..."></textarea>
+                  <button class="btn btn-sm btn-ghost">Reset to default</button>
+                </div>
               </div>
             </div>
-          </div>
-          <div class="advanced-section">
-            <h4 class="advanced-section-title">Debater Parameters</h4>
-            <div class="advanced-params">
-              <div class="param-group">
-                <label for="temperature">Temperature</label>
-                <input type="number" id="temperature" min="0" max="2" step="0.1" value="0.7" placeholder="0.7">
-                <span class="param-hint">Creativity (0 = precise, 1+ = random)</span>
-              </div>
-              <div class="param-group">
-                <label for="topP">Top P</label>
-                <input type="number" id="topP" min="0" max="1" step="0.05" placeholder="Not set">
-                <span class="param-hint">Nucleus sampling (0-1)</span>
-              </div>
-              <div class="param-group">
-                <label for="topK">Top K</label>
-                <input type="number" id="topK" min="0" max="100" step="1" placeholder="Not set">
-                <span class="param-hint">Top-k sampling</span>
-              </div>
-              <div class="param-group">
-                <label for="maxTokens">Max Tokens</label>
-                <input type="number" id="maxTokens" min="0" step="1" placeholder="Not set">
-                <span class="param-hint">Response length limit</span>
-              </div>
-            </div>
-          </div>
-          <div class="advanced-section judge-section">
-            <h4 class="advanced-section-title" style="color: var(--judge)">Judge Parameters</h4>
-            <div class="advanced-params">
-              <div class="param-group">
-                <label for="judgeTemperature">Temperature</label>
-                <input type="number" id="judgeTemperature" min="0" max="2" step="0.1" value="0.5" placeholder="0.5">
-                <span class="param-hint">Creativity (0 = precise, 1+ = random)</span>
-              </div>
-              <div class="param-group">
-                <label for="judgeTopP">Top P</label>
-                <input type="number" id="judgeTopP" min="0" max="1" step="0.05" placeholder="Not set">
-                <span class="param-hint">Nucleus sampling (0-1)</span>
-              </div>
-              <div class="param-group">
-                <label for="judgeTopK">Top K</label>
-                <input type="number" id="judgeTopK" min="0" max="100" step="1" placeholder="Not set">
-                <span class="param-hint">Top-k sampling</span>
-              </div>
-              <div class="param-group">
-                <label for="judgeMaxTokens">Max Tokens</label>
-                <input type="number" id="judgeMaxTokens" min="0" step="1" placeholder="Not set">
-                <span class="param-hint">Response length limit</span>
+            <div class="advanced-section">
+              <h4 class="advanced-section-title">Debater Parameters</h4>
+              <div class="advanced-params">
+                <div class="param-group">
+                  <label for="temperature">Temperature</label>
+                  <input type="number" id="temperature" min="0" max="2" step="0.1" value="0.7" placeholder="0.7">
+                  <span class="param-hint">Creativity (0 = precise, 1+ = random)</span>
+                </div>
+                <div class="param-group">
+                  <label for="topP">Top P</label>
+                  <input type="number" id="topP" min="0" max="1" step="0.05" placeholder="Not set">
+                  <span class="param-hint">Nucleus sampling (0-1)</span>
+                </div>
+                <div class="param-group">
+                  <label for="topK">Top K</label>
+                  <input type="number" id="topK" min="0" max="100" step="1" placeholder="Not set">
+                  <span class="param-hint">Top-k sampling</span>
+                </div>
+                <div class="param-group">
+                  <label for="maxTokens">Max Tokens</label>
+                  <input type="number" id="maxTokens" min="0" step="1" placeholder="Not set">
+                  <span class="param-hint">Response length limit</span>
+                </div>
               </div>
             </div>
+            <div class="advanced-section judge-section">
+              <h4 class="advanced-section-title" style="color: var(--judge)">Judge Parameters</h4>
+              <div class="advanced-params">
+                <div class="param-group">
+                  <label for="judgeTemperature">Temperature</label>
+                  <input type="number" id="judgeTemperature" min="0" max="2" step="0.1" value="0.5" placeholder="0.5">
+                  <span class="param-hint">Creativity (0 = precise, 1+ = random)</span>
+                </div>
+                <div class="param-group">
+                  <label for="judgeTopP">Top P</label>
+                  <input type="number" id="judgeTopP" min="0" max="1" step="0.05" placeholder="Not set">
+                  <span class="param-hint">Nucleus sampling (0-1)</span>
+                </div>
+                <div class="param-group">
+                  <label for="judgeTopK">Top K</label>
+                  <input type="number" id="judgeTopK" min="0" max="100" step="1" placeholder="Not set">
+                  <span class="param-hint">Top-k sampling</span>
+                </div>
+                <div class="param-group">
+                  <label for="judgeMaxTokens">Max Tokens</label>
+                  <input type="number" id="judgeMaxTokens" min="0" step="1" placeholder="Not set">
+                  <span class="param-hint">Response length limit</span>
+                </div>
+              </div>
+            </div>
+            <p class="advanced-note">⚠️ Custom settings override the default prompts and parameters. Leave blank to use defaults.</p>
           </div>
-          <p class="advanced-note">⚠️ Custom settings override the default prompts and parameters. Leave blank to use defaults.</p>
         </div>
       </div>
     </div>
@@ -232,7 +234,7 @@
         </div>
         <button class="btn btn-ghost" id="btnFetchJudge2">Synchronize Models</button>
         <div id="modelsJudge2" class="hidden"><div class="helper-text" id="modelsJudge2Info"></div></div>
-        
+
         <div class="action-buttons">
           <button class="btn btn-primary btn-large" id="btnStartJudge2" disabled>Render Verdict</button>
           <button class="btn btn-secondary" id="btnNewDebate2">New Dispute</button>
@@ -255,7 +257,7 @@
         </div>
         <div class="verdict-reasoning" id="verdictReasoning"></div>
       </div>
-      
+
       <div class="transcript-section">
         <div class="transcript-header">
           <span class="statement-label">Full Transcript</span>
@@ -264,7 +266,7 @@
         <div id="transcriptContainer" class="hidden">
           <div class="debate-stream" id="transcriptStream"></div>
         </div>
-        
+
         <div class="action-buttons">
           <button class="btn btn-primary btn-large" id="btnExportMarkdown">Export Findings</button>
           <button class="btn btn-secondary" id="btnRetryVerdict" style="display:none">Retry Verdict</button>

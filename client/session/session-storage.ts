@@ -202,6 +202,9 @@ export class SessionStorage {
   // ── Public API ─────────────────────────────────────────────────
 
   async save(config: Record<string, unknown>): Promise<boolean> {
+    // Skip in kiosk mode — config is server-managed
+    if (getConfig().kiosk.enabled) return false;
+
     const cfg = getConfig().session;
 
     if (this.cryptoAvailable) {
@@ -223,6 +226,9 @@ export class SessionStorage {
   }
 
   async restore(): Promise<boolean> {
+    // Skip in kiosk mode — config is server-managed
+    if (getConfig().kiosk.enabled) return false;
+
     const cfg = getConfig().session;
     let data: SessionData | null = null;
 

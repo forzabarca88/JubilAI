@@ -120,6 +120,21 @@ async function fetchModelsFor(panel: Panel, state: AppState) {
 
 /** Check if all required fields are filled to enable start button */
 function checkSetupReady(state: AppState) {
+  const config = getConfig();
+
+  // Kiosk mode: only statement is required
+  if (config.kiosk.enabled) {
+    const stmt = $('statement');
+    const btn = $('btnStartDebate');
+    const hasStatement = stmt && (stmt as HTMLTextAreaElement).value.trim().length > 0;
+    if (btn) {
+      btn.classList.toggle('btn-disabled', !hasStatement);
+      btn.setAttribute('aria-disabled', hasStatement ? 'false' : 'true');
+    }
+    if (btn) (btn as unknown as Record<string, unknown>)._missing = hasStatement ? [] : ['Statement'];
+    return;
+  }
+
   const stmt = $('statement');
   const mA = $('modelA');
   const mB = $('modelB');
@@ -288,22 +303,65 @@ export function initSetupPhase(state: AppState) {
       btn.innerHTML = '<span class="spinner"></span> Starting...';
     }
 
-    // Gather config values
-    const endpointA = $('endpointA') ? ($('endpointA') as HTMLInputElement).value.trim().replace(/\/+$/, '') : '';
-    const apiKeyA = $('apiKeyA') ? ($('apiKeyA') as HTMLInputElement).value.trim() : '';
-    const modelA = $('modelA') ? ($('modelA') as HTMLSelectElement).value : '';
-    const endpointB = $('endpointB') ? ($('endpointB') as HTMLInputElement).value.trim().replace(/\/+$/, '') : '';
-    const apiKeyB = $('apiKeyB') ? ($('apiKeyB') as HTMLInputElement).value.trim() : '';
-    const modelB = $('modelB') ? ($('modelB') as HTMLSelectElement).value : '';
-    const judgeModel = $('judgeModelSelect') ? ($('judgeModelSelect') as HTMLSelectElement).value : '';
-    const endpointJudge = $('endpointJudge') ? ($('endpointJudge') as HTMLInputElement).value.trim().replace(/\/+$/, '') : '';
-    const apiKeyJudge = $('apiKeyJudge') ? ($('apiKeyJudge') as HTMLInputElement).value.trim() : '';
+    const config = getConfig();
+    let body: DebateCreateBody;
 
-    const settings = gatherAdvancedSettings();
-    state.advancedSettings = settings;
+    if (config.kiosk.enabled) {
+      // Kiosk mode: construct body from config
+      body = {
+        statement,
+        modelA: config.kiosk.modelA,
+        modelB: config.kiosk.modelB,
+        endpointA: config.kiosk.endpointA,
+        apiKeyA: config.kiosk.apiKeyA || undefined,
+        endpointB: config.kiosk.endpointB,
+        apiKeyB: config.kiosk.apiKeyB || undefined,
+        judgeModel: config.kiosk.modelJudge || undefined,
+        endpointJudge: config.kiosk.endpointJudge || undefined,
+        apiKeyJudge: config.kiosk.apiKeyJudge || undefined,
+        promptA: config.kiosk.promptA || undefined,
+        promptB: config.kiosk.promptB || undefined,
+        promptJudge: config.kiosk.promptJudge || undefined,
+        temperature: config.kiosk.temperature,
+        topP: config.kiosk.topP,
+        topK: config.kiosk.topK,
+        maxTokens: config.kiosk.maxTokens,
+        judgeTemperature: config.kiosk.judgeTemperature,
+        judgeTopP: config.kiosk.judgeTopP,
+        judgeTopK: config.kiosk.judgeTopK,
+        judgeMaxTokens: config.kiosk.judgeMaxTokens,
+      };
 
-    try {
-      const body: DebateCreateBody = {
+      // Set state from kiosk config
+      state.advancedSettings = {
+        promptA: config.kiosk.promptA || '',
+        promptB: config.kiosk.promptB || '',
+        promptJudge: config.kiosk.promptJudge || '',
+        temperature: config.kiosk.temperature,
+        topP: config.kiosk.topP,
+        topK: config.kiosk.topK,
+        maxTokens: config.kiosk.maxTokens,
+        judgeTemperature: config.kiosk.judgeTemperature,
+        judgeTopP: config.kiosk.judgeTopP,
+        judgeTopK: config.kiosk.judgeTopK,
+        judgeMaxTokens: config.kiosk.judgeMaxTokens,
+      };
+    } else {
+      // Normal mode: gather from DOM
+      const endpointA = $('endpointA') ? ($('endpointA') as HTMLInputElement).value.trim().replace(/\/+$/, '') : '';
+      const apiKeyA = $('apiKeyA') ? ($('apiKeyA') as HTMLInputElement).value.trim() : '';
+      const modelA = $('modelA') ? ($('modelA') as HTMLSelectElement).value : '';
+      const endpointB = $('endpointB') ? ($('endpointB') as HTMLInputElement).value.trim().replace(/\/+$/, '') : '';
+      const apiKeyB = $('apiKeyB') ? ($('apiKeyB') as HTMLInputElement).value.trim() : '';
+      const modelB = $('modelB') ? ($('modelB') as HTMLSelectElement).value : '';
+      const judgeModel = $('judgeModelSelect') ? ($('judgeModelSelect') as HTMLSelectElement).value : '';
+      const endpointJudge = $('endpointJudge') ? ($('endpointJudge') as HTMLInputElement).value.trim().replace(/\/+$/, '') : '';
+      const apiKeyJudge = $('apiKeyJudge') ? ($('apiKeyJudge') as HTMLInputElement).value.trim() : '';
+
+      const settings = gatherAdvancedSettings();
+      state.advancedSettings = settings;
+
+      body = {
         statement,
         modelA,
         modelB,
@@ -326,7 +384,9 @@ export function initSetupPhase(state: AppState) {
         judgeTopK: settings.judgeTopK !== undefined ? settings.judgeTopK : undefined,
         judgeMaxTokens: settings.judgeMaxTokens !== undefined ? settings.judgeMaxTokens : undefined,
       };
+    }
 
+    try {
       const res = await apiClient.createDebate(body);
       const data = await apiClient.json<{
         id: string;
@@ -339,37 +399,39 @@ export function initSetupPhase(state: AppState) {
         autoJudge: boolean;
       }>(res);
 
-      // Silently save config
-      const saveConfig = {
-        statement,
-        endpointA, apiKeyA, modelA,
-        endpointB, apiKeyB, modelB,
-        endpointJudge, apiKeyJudge,
-        modelJudge: judgeModel,
-        promptA: settings.promptA,
-        promptB: settings.promptB,
-        promptJudge: settings.promptJudge,
-        temperature: settings.temperature,
-        topP: settings.topP,
-        topK: settings.topK,
-        maxTokens: settings.maxTokens,
-        judgeTemperature: settings.judgeTemperature,
-        judgeTopP: settings.judgeTopP,
-        judgeTopK: settings.judgeTopK,
-        judgeMaxTokens: settings.judgeMaxTokens,
-      };
-      sessionStorage.save(saveConfig).catch(err => {
-        console.warn('[Session] Save failed:', (err as Error).message);
-      });
+      // Save session only in non-kiosk mode
+      if (!config.kiosk.enabled) {
+        const saveConfig = {
+          statement,
+          endpointA: body.endpointA, apiKeyA: body.apiKeyA, modelA: body.modelA,
+          endpointB: body.endpointB, apiKeyB: body.apiKeyB, modelB: body.modelB,
+          endpointJudge: body.endpointJudge, apiKeyJudge: body.apiKeyJudge,
+          modelJudge: body.judgeModel,
+          promptA: state.advancedSettings.promptA,
+          promptB: state.advancedSettings.promptB,
+          promptJudge: state.advancedSettings.promptJudge,
+          temperature: state.advancedSettings.temperature,
+          topP: state.advancedSettings.topP,
+          topK: state.advancedSettings.topK,
+          maxTokens: state.advancedSettings.maxTokens,
+          judgeTemperature: state.advancedSettings.judgeTemperature,
+          judgeTopP: state.advancedSettings.judgeTopP,
+          judgeTopK: state.advancedSettings.judgeTopK,
+          judgeMaxTokens: state.advancedSettings.judgeMaxTokens,
+        };
+        sessionStorage.save(saveConfig).catch(err => {
+          console.warn('[Session] Save failed:', (err as Error).message);
+        });
+      }
 
       state.debateId = data.id;
       state.debateData = {
         statement: data.statement,
         modelA: data.modelA,
         modelB: data.modelB,
-        endpointA,
-        endpointB,
-        endpointJudge: endpointJudge || null,
+        endpointA: body.endpointA,
+        endpointB: body.endpointB,
+        endpointJudge: body.endpointJudge || null,
         messages: [],
         nextSpeaker: data.nextSpeaker as 'A' | 'B' | null,
         countA: 0,

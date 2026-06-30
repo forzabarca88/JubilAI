@@ -928,3 +928,51 @@ input[type="text"], input[type="password"], select {
     padding: 0.3rem 0.6rem;
   }
 }
+
+/* Kiosk Mode — hide configuration UI, show only statement + start */
+html[data-kiosk="true"] .setup-config-section {
+  display: none;
+}
+
+html[data-kiosk="true"] #phase-setup .briefing-grid {
+  display: block;
+}
+
+html[data-kiosk="true"] #phase-setup .briefing-card {
+  grid-column: span 1;
+}
+
+html[data-kiosk="true"] .arena-nav #btnHistory {
+  display: none;
+}
+
+html[data-kiosk="true"] #phase-judge-select {
+  display: none !important;
+}
+
+html[data-kiosk="true"] #phase-setup .briefing-header {
+  text-align: center;
+}
+
+html[data-kiosk="true"] #phase-setup .briefing-title {
+  font-size: 2rem;
+}
+
+html[data-kiosk="true"] #phase-setup .briefing-subtitle {
+  font-size: 1rem;
+}
+
+html[data-kiosk="true"] #phase-setup textarea#statement {
+  height: 160px;
+  font-size: 1.1rem;
+}
+
+html[data-kiosk="true"] .briefing-footer {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+}
+
+html[data-kiosk="true"] #btnStartDebate {
+  font-size: 1.3rem;
+  padding: 1.2rem 3rem;
+}

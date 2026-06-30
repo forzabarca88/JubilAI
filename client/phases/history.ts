@@ -3,6 +3,7 @@
  * Renders as a centered overlay that preserves the underlying phase state.
  */
 
+import { getConfig } from '../config';
 import { $, showToast, showPhase } from '../dom/helpers';
 import { apiClient } from '../api/client';
 import { playHistoryAudio, stopHistoryAudio } from '../tts/manager';
@@ -15,6 +16,9 @@ import type { Message, DebatePhase } from '../../shared/types/debate';
  * Bind event listeners for the history panel.
  */
 export function initHistoryPanel(state: AppState): void {
+  // Skip in kiosk mode
+  if (getConfig().kiosk.enabled) return;
+
   // Open history from nav button
   $('btnHistory')?.addEventListener('click', () => openHistoryPanel(state));
 

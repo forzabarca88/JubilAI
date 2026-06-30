@@ -129,6 +129,9 @@ export async function executeNextTurn(state: AppState) {
               if (data.autoJudge) {
                 await new Promise(resolve => setTimeout(resolve, getConfig().debate.autoJudgeDelayMs));
                 await runVerdict(state.debateData!.judgeModel!, state.debateData!.endpointJudge!, state);
+              } else if (getConfig().kiosk.enabled) {
+                // Kiosk mode without pre-configured judge: show completion message
+                showToast('No judge configured — debate complete', 'info');
               } else {
                 await transitionToJudgeSelect(state);
               }
