@@ -5,6 +5,7 @@
 
 import { getConfig } from '../config';
 import { $, showToast, showPhase } from '../dom/helpers';
+import { resetDomToDefaults, JUDGE_SELECT_BINDINGS } from '../dom/bindings';
 import { apiClient } from '../api/client';
 import type { AppState } from '../state/app-state';
 import type { ErrorResponse } from '../../shared/types/api';
@@ -23,23 +24,12 @@ export async function transitionToJudgeSelect(state: AppState) {
   const st = $('statusText');
   if (st) st.textContent = 'Select a judge';
 
+  // Reset judge-select form via binding layer
+  resetDomToDefaults(JUDGE_SELECT_BINDINGS);
+
   // Pre-fill judge endpoint with The Affirmative's endpoint as default
   const ej = $('endpointJudge2');
   if (ej) (ej as HTMLInputElement).value = state.debateData!.endpointA || '';
-  const akj = $('apiKeyJudge2');
-  if (akj) (akj as HTMLInputElement).value = '';
-  const jms = $('judgeModelSelect2');
-  if (jms) {
-    jms.innerHTML = '<option value="">— fetch models first —</option>';
-    (jms as HTMLSelectElement).disabled = true;
-  }
-  const mj = $('modelsJudge2');
-  if (mj) mj.classList.add('hidden');
-  const bsj = $('btnStartJudge2');
-  if (bsj) {
-    (bsj as HTMLButtonElement).disabled = true;
-    (bsj as HTMLButtonElement).innerHTML = 'Render Verdict';
-  }
 }
 
 /** Check if judge-select form is ready */

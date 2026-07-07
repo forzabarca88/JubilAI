@@ -17,6 +17,8 @@ import type {
   ErrorResponse,
   SavedDebateSummary,
   DebatesListResponse,
+  ValidateRequest,
+  ValidateResponse,
 } from '../../shared/types/api';
 import type { SSEEvent } from '../../shared/types/sse';
 
@@ -87,6 +89,15 @@ export class ApiClient {
   /** Delete a persisted debate */
   async deleteDebateHistory(id: string): Promise<Response> {
     return fetch(`/api/debates/${id}`, { method: 'DELETE' });
+  }
+
+  /** Validate an endpoint/API key/model combination before starting a debate */
+  async validate(data: ValidateRequest): Promise<Response> {
+    return fetch('/api/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
   }
 
   /** Parse JSON response, throwing on non-OK */

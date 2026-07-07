@@ -32,17 +32,18 @@
 - `config.ts` — Reads `config.json`, exposes `loadConfig()` + `getConfig()`
 - `state/app-state.ts` — `appState` singleton (models, debate data, turn counts, TTS state, `advancedSettings`, `sessionRestored`)
 - `dom/helpers.ts` — `$()` null-guard, `showPhase()`, `showToast()`, scroll helpers
+- `dom/bindings.ts` — Data-driven DOM binding layer. `SETUP_BINDINGS`, `JUDGE_SELECT_BINDINGS`, `DEBATE_BINDINGS` arrays define field defaults. Exports: `resetDomToDefaults()`, `syncDomToState()`, `syncStateToDom()`, `gatherAdvancedSettingsFromDom()`
 - `dom/tts-ui.ts` — `updateTTSEnableButton()`, TTS status polling (takes `state: AppState` param)
 - `dom/debate-ui.ts` — `renderDebateProgress`, `updateDebateStatus`, `showRetryTurn`, `hideRetryTurn` (extracted to break circular dependency)
-- `api/client.ts` — `apiClient` singleton wrapping all `/api/*` fetch calls
+- `api/client.ts` — `apiClient` singleton wrapping all `/api/*` fetch calls. Includes `validate()` for pre-flight endpoint validation
 - `session/session-storage.ts` — Encrypted (IndexedDB AES-256-GCM key + localStorage ciphertext) / plaintext fallback (HTTP, no API keys)
 - `tts/manager.ts` — `RealtimeTTSManager` (Web Worker, sentence queue, pipelined playback). Helper exports: `startDebateAudio`, `feedAudioText`, etc. Functions take `state: AppState` param.
 - `tts/worker.ts` — Kokoro via CDN dynamic import, ONNX Runtime Web, `{ type: 'module' }` Worker, Cache API polyfill (in-memory fallback for untrustworthy origins where `caches` is undefined)
-- `phases/setup.ts` — `fetchModelsFor(panel)`, readiness checks, debate creation, TTS init, session restore/save, `resetPrompt`
+- `phases/setup.ts` — `fetchModelsFor(panel)`, readiness checks, debate creation, TTS init, session restore/save, `resetPrompt`, pre-flight validation
 - `phases/debate.ts` — Turn execution, SSE streaming, auto-advance, TTS text feeding
-- `phases/judge-select.ts` — `fetchModelsForJudgeSelect()` reads from `*2` DOM elements. Do NOT call `fetchModelsFor('Judge')` here.
+- `phases/judge-select.ts` — Uses `resetDomToDefaults(JUDGE_SELECT_BINDINGS)` for form reset. `fetchModelsForJudgeSelect()` reads from `*2` DOM elements. Do NOT call `fetchModelsFor('Judge')` here.
 - `phases/verdict.ts` — Verdict streaming, winner parsing, transcript, markdown export, TTS for judge voice
-- `app.ts` — `resetToSetup()` clears all state/DOM, resets `sessionRestored` flag, destroys TTS
+- `app.ts` — `resetToSetup()` uses binding layer (`resetDomToDefaults`) to reset DOM. Clears state, resets `sessionRestored` flag, destroys TTS
 - `global.d.ts` — Type declarations for `marked` (CDN), `KokoroTTS`, build-time defines, Worker augmentations
 
 ## Server Modules (`server/`)
@@ -52,22 +53,25 @@
 - `routes/models.ts` — `GET /api/models?url=...` with retry
 - `routes/turns.ts` — `POST /api/debate/:id/next-turn` (SSE streaming, auto-advance/judge)
 - `routes/verdicts.ts` — `POST /api/debate/:id/verdict` (judge SSE), `POST /api/debate/:id/judge`
+- `routes/validate.ts` — `POST /api/validate` pre-flight check: tests endpoint connectivity, auth, model availability, and lightweight completion
 - `utils/openai-client.ts` — `createClient(apiUrl, apiKey)` appends `/v1`, `withRetry(fn)` (1 retry, 5s)
 - `utils/prompts.ts` — Re-exports from `shared/utils/prompts.ts`
 
 ## Shared Modules (`shared/`)
-- `types/config.ts` — Interfaces for all config sections
+- `types/config.ts` — Interfaces for all config sections. `PromptsConfig` includes optional `versionAffirmative/Negative/Judge` fields
 - `types/debate.ts` — `Debate`, `DebateCreateBody`, `DebateMessage`, `Speaker`, etc.
-- `types/api.ts` — `ModelInfo`, SSE event types
+- `types/api.ts` — `ModelInfo`, SSE event types, `ValidateRequest`/`ValidateResponse`
 - `types/sse.ts` — `SSEChunkEvent`, `SSDoneEvent` (includes `error` property), `SSEErrorEvent`, `SSEEvent` union
 - `utils/streaming.ts` — `setupSSE`, `sendChunk`, `sendDone`, `sendError`, `streamText`, `flushSSE`
-- `utils/prompts.ts` — `getAffirmativePrompt`, `getNegativePrompt`, `getJudgePrompt`, `getSpeakerPrompt`
+- `utils/prompts.ts` — Versioned prompt resolver. Reads `prompts.json` registry, resolves by version ID from config. Exports: `getAffirmativePrompt`, `getNegativePrompt`, `getJudgePrompt`, `getSpeakerPrompt`, `getAvailableVersions`, `getPromptInfo`
+- `utils/config.ts` — Config loader with validation. Server resolves prompt versions when serving `/config.json`
+- `prompts/prompts.json` — Versioned prompt registry. Add new versions here without rebuilding
 - `middleware/debates.ts` — `debates` Map (keyed by UUID), `findDebate` Express middleware
 
 ## Mock Server (`mock/`)
 - `index.ts` — Express on port 3001, CORS, JSON parsing
 - `app.ts` — `createMockApp()` factory, COOP+COEP headers, static `public/`
-- `routes/` — Mirrors real server routes with hardcoded responses
+- `routes/` — Mirrors real server routes with hardcoded responses. Includes `validate.ts` (mock validation, always succeeds for known models)
 - `data/mock-data.ts` — `MOCK_MODELS` (6 fake models), `MOCK_DEBATE_CONTENT` (3 turns/side + verdict, always Negative wins)
 
 ## SSE Streaming Protocol
@@ -89,11 +93,17 @@ Frontend reads via `res.body.getReader()` + `TextDecoder`, parses `data: ` lines
 - **Plaintext fallback** (HTTP): stores non-sensitive config under `jubilai_session_plain`. API keys **never** stored in plaintext.
 - Auto-restore on init, auto-save after debate creation. All failures silent.
 
-## System Prompts (`shared/utils/prompts.ts`)
-`getAffirmativePrompt`, `getNegativePrompt`, `getJudgePrompt`. Require prose format, penalize lists/repetition. Server re-exports via `server/utils/prompts.ts`.
+## System Prompts (`shared/utils/prompts.ts` + `shared/prompts/prompts.json`)
+Versioned prompt registry in `prompts.json`. Config references active versions by ID (`versionAffirmative: "v1"`). Resolved at runtime — adding variants requires only editing JSON, no rebuild. `getAffirmativePrompt`, `getNegativePrompt`, `getJudgePrompt` accept optional `customPrompt` override. Server resolves versions when serving config to client.
+
+## DOM Binding Layer (`client/dom/bindings.ts`)
+Declarative configuration replaces manual DOM resets. `FieldBinding` structs define element ID, type, and default value. `resetDomToDefaults()` resets all fields at once. `syncDomToState()` reads form into state. `syncStateToDom()` writes state to form. Used by `resetToSetup()`, `judge-select` transitions, and session restore.
 
 ## Advanced Settings
-Collapsible panel in setup phase. 3 custom prompt textareas (`#promptA`, `#promptB`, `#promptJudge`) + debater params (`temperature` default `0.7`, `topP`, `topK`, `maxTokens`) + judge params (`judgeTemperature` default `0.5`, `judgeTopP`, `judgeTopK`, `judgeMaxTokens`). Server stores as `debate.customPromptA/B/Judge` and `debate.temperature/topP/topK/maxTokens` / `debate.judgeTemperature/topP/topK/maxTokens` (null when unset). `resetToSetup()` clears all.
+Collapsible panel in setup phase. 3 custom prompt textareas (`#promptA`, `#promptB`, `#promptJudge`) + debater params (`temperature` default `0.7`, `topP`, `topK`, `maxTokens`) + judge params (`judgeTemperature` default `0.5`, `judgeTopP`, `judgeTopK`, `judgeMaxTokens`). Server stores as `debate.customPromptA/B/Judge` and `debate.temperature/topP/topK/maxTokens` / `debate.judgeTemperature/topP/topK/maxTokens` (null when unset). Reset handled by binding layer.
+
+## Pre-flight Validation (`POST /api/validate`)
+Tests endpoint connectivity, API key auth, model availability, and lightweight completion before debate starts. Integrated into setup phase as non-blocking warning. Available on both real and mock servers.
 
 ## TTS (`client/tts/manager.ts`, `client/tts/worker.ts`)
 - Kokoro model via Web Worker, WASM inference only (no WebGPU), q4 quantization

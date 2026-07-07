@@ -6,6 +6,7 @@ import path from 'path';
 import fs from 'fs';
 import routes from './routes';
 import type { RootConfig } from '../shared/types/config';
+import { getAffirmativePrompt, getNegativePrompt, getJudgePrompt } from '../shared/utils/prompts';
 
 export function createApp(config: RootConfig): Express {
   const app = express();
@@ -23,8 +24,16 @@ export function createApp(config: RootConfig): Express {
 
   // Route handlers registered BEFORE express.static to take priority
   // Serve config.json to the frontend (with env overrides applied)
+  // Resolve prompt versions so the client gets the actual prompt text
   app.get('/config.json', (req, res) => {
-    res.json(config);
+    const resolved = { ...config };
+    resolved.prompts = {
+      ...config.prompts,
+      affirmative: getAffirmativePrompt(),
+      negative: getNegativePrompt(),
+      judge: getJudgePrompt(),
+    };
+    res.json(resolved);
   });
 
   // In kiosk mode, serve HTML with data-kiosk attribute injected

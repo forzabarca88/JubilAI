@@ -5,11 +5,12 @@
 
 import { getConfig } from '../config';
 import { $, showToast, showPhase } from '../dom/helpers';
+import { gatherAdvancedSettingsFromDom } from '../dom/bindings';
 import { renderDebateProgress, updateDebateStatus, showRetryTurn, hideRetryTurn } from '../dom/debate-ui';
 import { apiClient } from '../api/client';
 import { sessionStorage } from '../session/session-storage';
 import type { AppState } from '../state/app-state';
-import type { ModelInfo, DebateCreateBody } from '../../shared/types/api';
+import type { ModelInfo, DebateCreateBody, ValidateResponse } from '../../shared/types/api';
 import { startDebateAudio, stopDebateAudio } from '../tts/manager';
 import { updateTTSEnableButton } from '../dom/tts-ui';
 import { initDebatePhase, executeNextTurn } from './debate';
@@ -163,46 +164,7 @@ function checkSetupReady(state: AppState) {
   if (btn) (btn as unknown as Record<string, unknown>)._missing = missing;
 }
 
-/** Gather advanced settings from DOM */
-function gatherAdvancedSettings(): {
-  promptA: string;
-  promptB: string;
-  promptJudge: string;
-  temperature: number | undefined;
-  topP: number | undefined;
-  topK: number | undefined;
-  maxTokens: number | undefined;
-  judgeTemperature: number | undefined;
-  judgeTopP: number | undefined;
-  judgeTopK: number | undefined;
-  judgeMaxTokens: number | undefined;
-} {
-  const promptA = $('promptA') as HTMLTextAreaElement | null;
-  const promptB = $('promptB') as HTMLTextAreaElement | null;
-  const promptJudge = $('promptJudge') as HTMLTextAreaElement | null;
-  const temperature = $('temperature') as HTMLInputElement | null;
-  const topP = $('topP') as HTMLInputElement | null;
-  const topK = $('topK') as HTMLInputElement | null;
-  const maxTokens = $('maxTokens') as HTMLInputElement | null;
-  const judgeTemperature = $('judgeTemperature') as HTMLInputElement | null;
-  const judgeTopP = $('judgeTopP') as HTMLInputElement | null;
-  const judgeTopK = $('judgeTopK') as HTMLInputElement | null;
-  const judgeMaxTokens = $('judgeMaxTokens') as HTMLInputElement | null;
 
-  return {
-    promptA: promptA?.value.trim() || '',
-    promptB: promptB?.value.trim() || '',
-    promptJudge: promptJudge?.value.trim() || '',
-    temperature: temperature?.value ? parseFloat(temperature.value) : undefined,
-    topP: topP?.value ? parseFloat(topP.value) : undefined,
-    topK: topK?.value ? parseInt(topK.value, 10) : undefined,
-    maxTokens: maxTokens?.value ? parseInt(maxTokens.value, 10) : undefined,
-    judgeTemperature: judgeTemperature?.value ? parseFloat(judgeTemperature.value) : undefined,
-    judgeTopP: judgeTopP?.value ? parseFloat(judgeTopP.value) : undefined,
-    judgeTopK: judgeTopK?.value ? parseInt(judgeTopK.value, 10) : undefined,
-    judgeMaxTokens: judgeMaxTokens?.value ? parseInt(judgeMaxTokens.value, 10) : undefined,
-  };
-}
 
 /** Bind setup phase event listeners using addEventListener */
 export function initSetupPhase(state: AppState) {
@@ -358,7 +320,7 @@ export function initSetupPhase(state: AppState) {
       const endpointJudge = $('endpointJudge') ? ($('endpointJudge') as HTMLInputElement).value.trim().replace(/\/+$/, '') : '';
       const apiKeyJudge = $('apiKeyJudge') ? ($('apiKeyJudge') as HTMLInputElement).value.trim() : '';
 
-      const settings = gatherAdvancedSettings();
+      const settings = gatherAdvancedSettingsFromDom();
       state.advancedSettings = settings;
 
       body = {
@@ -384,6 +346,61 @@ export function initSetupPhase(state: AppState) {
         judgeTopK: settings.judgeTopK !== undefined ? settings.judgeTopK : undefined,
         judgeMaxTokens: settings.judgeMaxTokens !== undefined ? settings.judgeMaxTokens : undefined,
       };
+    }
+
+    // Pre-flight validation: verify endpoints and models are accessible
+    // (non-blocking — warns on failure but allows debate to proceed)
+    if (!config.kiosk.enabled) {
+      const validations: Promise<ValidateResponse>[] = [];
+
+      // Validate Affirmative endpoint
+      const epA = $('endpointA') ? ($('endpointA') as HTMLInputElement).value.trim().replace(/\/+$/, '') : '';
+      const akA = $('apiKeyA') ? ($('apiKeyA') as HTMLInputElement).value.trim() : '';
+      const mA = $('modelA') ? ($('modelA') as HTMLSelectElement).value : '';
+      if (epA && mA) {
+        validations.push(
+          apiClient.json<ValidateResponse>(
+            apiClient.validate({ url: epA, apiKey: akA || undefined, model: mA })
+          ).catch(err => ({ valid: false, error: `Affirmative: ${err instanceof Error ? err.message : String(err)}`, models: [] }))
+        );
+      }
+
+      // Validate Negative endpoint
+      const epB = $('endpointB') ? ($('endpointB') as HTMLInputElement).value.trim().replace(/\/+$/, '') : '';
+      const akB = $('apiKeyB') ? ($('apiKeyB') as HTMLInputElement).value.trim() : '';
+      const mB = $('modelB') ? ($('modelB') as HTMLSelectElement).value : '';
+      if (epB && mB) {
+        validations.push(
+          apiClient.json<ValidateResponse>(
+            apiClient.validate({ url: epB, apiKey: akB || undefined, model: mB })
+          ).catch(err => ({ valid: false, error: `Negative: ${err instanceof Error ? err.message : String(err)}`, models: [] }))
+        );
+      }
+
+      // Validate Judge endpoint (if configured)
+      const jm = $('judgeModelSelect') ? ($('judgeModelSelect') as HTMLSelectElement).value : '';
+      const epJ = $('endpointJudge') ? ($('endpointJudge') as HTMLInputElement).value.trim().replace(/\/+$/, '') : '';
+      const akJ = $('apiKeyJudge') ? ($('apiKeyJudge') as HTMLInputElement).value.trim() : '';
+      if (epJ && jm) {
+        validations.push(
+          apiClient.json<ValidateResponse>(
+            apiClient.validate({ url: epJ, apiKey: akJ || undefined, model: jm })
+          ).catch(err => ({ valid: false, error: `Judge: ${err instanceof Error ? err.message : String(err)}`, models: [] }))
+        );
+      }
+
+      if (validations.length > 0) {
+        btn.innerHTML = '<span class="spinner"></span> Validating endpoints...';
+        const results = await Promise.all(validations);
+        const failures = results.filter(r => !r.valid);
+        if (failures.length > 0) {
+          const errorMsg = failures.map(f => f.error || 'unknown error').join('; ');
+          showToast(`Warning: ${errorMsg} — proceeding anyway`, 'error');
+        } else {
+          showToast('Endpoints validated successfully', 'success');
+        }
+        btn.innerHTML = '<span class="spinner"></span> Starting...';
+      }
     }
 
     try {

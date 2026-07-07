@@ -13,6 +13,7 @@
 
 import { getConfig } from '../config';
 import { $ } from '../dom/helpers';
+import { syncStateToDom, SETUP_BINDINGS } from '../dom/bindings';
 import type { AppState } from '../state/app-state';
 
 // Fields that are safe to store in plaintext (no secrets)
@@ -281,7 +282,7 @@ export class SessionStorage {
 
   /** Apply config to DOM elements */
   _applyToDom(config: Record<string, unknown>, afterFetch: boolean, state?: AppState) {
-    // Text inputs — always set
+    // Apply text/textarea inputs from config
     const textFields: [domId: string, cfgKey: string][] = [
       ['statement', 'statement'],
       ['endpointA', 'endpointA'],
@@ -308,6 +309,7 @@ export class SessionStorage {
       if (!el || config[cfgKey] === undefined || config[cfgKey] === null) continue;
 
       const val = config[cfgKey];
+      // Skip fields that represent "unset" (default values)
       if (cfgKey === 'topP' && (val === 1 || val === '1')) continue;
       if (cfgKey === 'topK' && (val === 0 || val === '0')) continue;
       if (cfgKey === 'maxTokens' && (val === 0 || val === '0')) continue;
