@@ -35,7 +35,7 @@
 - `dom/bindings.ts` — Data-driven DOM binding layer. `SETUP_BINDINGS`, `JUDGE_SELECT_BINDINGS`, `DEBATE_BINDINGS` arrays define field defaults. Exports: `resetDomToDefaults()`, `syncDomToState()`, `syncStateToDom()`, `gatherAdvancedSettingsFromDom()`
 - `dom/tts-ui.ts` — `updateTTSEnableButton()`, TTS status polling (takes `state: AppState` param)
 - `dom/debate-ui.ts` — `renderDebateProgress`, `updateDebateStatus`, `showRetryTurn`, `hideRetryTurn` (extracted to break circular dependency)
-- `api/client.ts` — `apiClient` singleton wrapping all `/api/*` fetch calls. Includes `validate()` for pre-flight endpoint validation
+- `api/client.ts` — `apiClient` singleton wrapping all `/api/*` fetch calls. Includes `parseJson<T>()` (renamed from `json` to avoid conflict with global `JSON` during minification) and `validate()` for pre-flight endpoint validation
 - `session/session-storage.ts` — Encrypted (IndexedDB AES-256-GCM key + localStorage ciphertext) / plaintext fallback (HTTP, no API keys)
 - `tts/manager.ts` — `RealtimeTTSManager` (Web Worker, sentence queue, pipelined playback). Helper exports: `startDebateAudio`, `feedAudioText`, etc. Functions take `state: AppState` param.
 - `tts/worker.ts` — Kokoro via CDN dynamic import, ONNX Runtime Web, `{ type: 'module' }` Worker, Cache API polyfill (in-memory fallback for untrustworthy origins where `caches` is undefined)

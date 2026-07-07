@@ -81,7 +81,7 @@ async function fetchModelsFor(panel: Panel, state: AppState) {
 
   try {
     const res = await apiClient.fetchModels(url, apiKey || undefined);
-    const data = await apiClient.json<{ models: ModelInfo[] }>(res);
+    const data = await apiClient.parseJson<{ models: ModelInfo[] }>(res);
 
     const models = data.models || [];
     state[cfg.stateKey] = models;
@@ -353,15 +353,30 @@ export function initSetupPhase(state: AppState) {
     if (!config.kiosk.enabled) {
       const validations: Promise<ValidateResponse>[] = [];
 
+      console.log('[Setup] Starting pre-flight validation...', {
+        apiClient: typeof apiClient,
+        parseJson: typeof apiClient.parseJson,
+        validate: typeof apiClient.validate,
+      });
+
       // Validate Affirmative endpoint
       const epA = $('endpointA') ? ($('endpointA') as HTMLInputElement).value.trim().replace(/\/+$/, '') : '';
       const akA = $('apiKeyA') ? ($('apiKeyA') as HTMLInputElement).value.trim() : '';
       const mA = $('modelA') ? ($('modelA') as HTMLSelectElement).value : '';
       if (epA && mA) {
         validations.push(
-          apiClient.json<ValidateResponse>(
-            apiClient.validate({ url: epA, apiKey: akA || undefined, model: mA })
-          ).catch(err => ({ valid: false, error: `Affirmative: ${err instanceof Error ? err.message : String(err)}`, models: [] }))
+          (async () => {
+            console.log('[Setup] Validating Affirmative:', { url: epA, model: mA });
+            const res = await apiClient.validate({ url: epA, apiKey: akA || undefined, model: mA });
+            console.log('[Setup] Affirmative response:', { status: res.status, ok: res.ok, type: res.type });
+            const data = await apiClient.parseJson<ValidateResponse>(res);
+            console.log('[Setup] Affirmative parsed:', data);
+            return data;
+          })()
+          .catch(err => {
+            console.error('[Setup] Affirmative validation failed:', err);
+            return { valid: false, error: `Affirmative: ${err instanceof Error ? err.message : String(err)}`, models: [] };
+          })
         );
       }
 
@@ -371,9 +386,18 @@ export function initSetupPhase(state: AppState) {
       const mB = $('modelB') ? ($('modelB') as HTMLSelectElement).value : '';
       if (epB && mB) {
         validations.push(
-          apiClient.json<ValidateResponse>(
-            apiClient.validate({ url: epB, apiKey: akB || undefined, model: mB })
-          ).catch(err => ({ valid: false, error: `Negative: ${err instanceof Error ? err.message : String(err)}`, models: [] }))
+          (async () => {
+            console.log('[Setup] Validating Negative:', { url: epB, model: mB });
+            const res = await apiClient.validate({ url: epB, apiKey: akB || undefined, model: mB });
+            console.log('[Setup] Negative response:', { status: res.status, ok: res.ok, type: res.type });
+            const data = await apiClient.parseJson<ValidateResponse>(res);
+            console.log('[Setup] Negative parsed:', data);
+            return data;
+          })()
+          .catch(err => {
+            console.error('[Setup] Negative validation failed:', err);
+            return { valid: false, error: `Negative: ${err instanceof Error ? err.message : String(err)}`, models: [] };
+          })
         );
       }
 
@@ -383,9 +407,18 @@ export function initSetupPhase(state: AppState) {
       const akJ = $('apiKeyJudge') ? ($('apiKeyJudge') as HTMLInputElement).value.trim() : '';
       if (epJ && jm) {
         validations.push(
-          apiClient.json<ValidateResponse>(
-            apiClient.validate({ url: epJ, apiKey: akJ || undefined, model: jm })
-          ).catch(err => ({ valid: false, error: `Judge: ${err instanceof Error ? err.message : String(err)}`, models: [] }))
+          (async () => {
+            console.log('[Setup] Validating Judge:', { url: epJ, model: jm });
+            const res = await apiClient.validate({ url: epJ, apiKey: akJ || undefined, model: jm });
+            console.log('[Setup] Judge response:', { status: res.status, ok: res.ok, type: res.type });
+            const data = await apiClient.parseJson<ValidateResponse>(res);
+            console.log('[Setup] Judge parsed:', data);
+            return data;
+          })()
+          .catch(err => {
+            console.error('[Setup] Judge validation failed:', err);
+            return { valid: false, error: `Judge: ${err instanceof Error ? err.message : String(err)}`, models: [] };
+          })
         );
       }
 
@@ -405,7 +438,7 @@ export function initSetupPhase(state: AppState) {
 
     try {
       const res = await apiClient.createDebate(body);
-      const data = await apiClient.json<{
+      const data = await apiClient.parseJson<{
         id: string;
         statement: string;
         modelA: string;

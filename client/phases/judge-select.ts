@@ -65,7 +65,7 @@ async function fetchModelsForJudgeSelect(state: AppState) {
 
   try {
     const res = await apiClient.fetchModels(url, apiKey || undefined);
-    const data = await apiClient.json<{ models: { id: string }[] }>(res);
+    const data = await apiClient.parseJson<{ models: { id: string }[] }>(res);
 
     if (!res.ok) { showToast((data as unknown as ErrorResponse).error || 'Failed to fetch models', 'error'); return; }
 
@@ -130,7 +130,7 @@ export function initJudgeSelectPhase(state: AppState) {
 
     try {
       const res = await apiClient.setJudge(state.debateId!, { judgeModel, endpointJudge, apiKeyJudge });
-      const data = await apiClient.json<{ phase: string; judgeModel: string }>(res);
+      const data = await apiClient.parseJson<{ phase: string; judgeModel: string }>(res);
       if (!res.ok) { showToast((data as unknown as ErrorResponse).error || 'Failed', 'error'); return; }
 
       state.debateData!.judgeModel = judgeModel;

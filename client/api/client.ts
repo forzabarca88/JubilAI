@@ -101,7 +101,7 @@ export class ApiClient {
   }
 
   /** Parse JSON response, throwing on non-OK */
-  async json<T>(res: Response): Promise<T> {
+  async parseJson<T>(res: Response): Promise<T> {
     const data = await res.json();
     if (!res.ok) {
       const err = data as ErrorResponse;

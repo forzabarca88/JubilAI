@@ -402,7 +402,7 @@ async function main() {
       console.log('  History: ✅ All checks passed');
     }
 
-    const hasRuntimeErrors = consoleErrors.some(e => e.includes('Worker error') || e.includes('Uncaught'));
+    const hasRuntimeErrors = consoleErrors.some(e => e.includes('Worker error') || e.includes('Uncaught') || e.includes('is not a function'));
     const hasTurnFailures = transcriptMessages < 6;
     const hasWinnerFailures = !winner || !winner.includes('Negative');
     const hasHistoryFailures = historyFailures.length > 0;
@@ -439,7 +439,7 @@ async function main() {
     server.kill();
   }
 
-  const hasRuntimeErrors = consoleErrors.some(e => e.includes('Worker error') || e.includes('Uncaught'));
+  const hasRuntimeErrors = consoleErrors.some(e => e.includes('Worker error') || e.includes('Uncaught') || e.includes('is not a function'));
   const hasHistoryFailures = historyFailures.length > 0;
   process.exit(hasRuntimeErrors || hasHistoryFailures ? 1 : 0);
 }

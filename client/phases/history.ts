@@ -55,7 +55,7 @@ export function initHistoryPanel(state: AppState): void {
 export async function openHistoryPanel(state: AppState): Promise<void> {
   try {
     const res = await apiClient.listDebates();
-    const data = await apiClient.json<DebatesListResponse>(res);
+    const data = await apiClient.parseJson<DebatesListResponse>(res);
 
     renderHistoryList(data.debates);
 
@@ -146,7 +146,7 @@ export async function viewDebate(id: string, state: AppState): Promise<void> {
     closeHistoryPanel();
 
     const res = await apiClient.getDebateHistory(id);
-    const data = await apiClient.json<DebateStateResponse>(res);
+    const data = await apiClient.parseJson<DebateStateResponse>(res);
 
     // Populate appState with the debate data
     state.debateId = data.id;
@@ -283,7 +283,7 @@ function renderViewedVerdict(data: DebateStateResponse): void {
 export async function deleteDebate(id: string, state: AppState): Promise<void> {
   try {
     const res = await apiClient.deleteDebateHistory(id);
-    const data = await apiClient.json<{ success: boolean }>(res);
+    const data = await apiClient.parseJson<{ success: boolean }>(res);
 
     if (data.success) {
       // Remove card from DOM with animation
