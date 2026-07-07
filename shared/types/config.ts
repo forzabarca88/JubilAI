@@ -28,10 +28,19 @@ export interface LLMConfig {
   judgeDefaults: LLMDefaults;
 }
 
+export interface PromptVersion {
+  description: string;
+  text: string;
+}
+
 export interface PromptsConfig {
   affirmative: string;
   negative: string;
   judge: string;
+  /** Active prompt version IDs (e.g., "v1"). Resolved from prompts.json at runtime. */
+  versionAffirmative?: string;
+  versionNegative?: string;
+  versionJudge?: string;
 }
 
 export interface TTSConfig {

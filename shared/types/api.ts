@@ -126,3 +126,17 @@ export interface SavedDebateSummary {
 export interface DebatesListResponse {
   debates: SavedDebateSummary[];
 }
+
+// Pre-flight validation types
+export interface ValidateRequest {
+  url: string;
+  apiKey?: string;
+  model?: string;
+}
+
+export interface ValidateResponse {
+  valid: boolean;
+  error?: string;
+  models: string[];
+  model?: string;
+}
