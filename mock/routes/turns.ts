@@ -29,9 +29,9 @@ router.post('/debate/:id/next-turn', findDebate, async (req: Request, res: Respo
   // Simulate generation delay
   await new Promise(resolve => setTimeout(resolve, config.mock.turnGenerationDelayMs));
 
-  // Pick content from mock data
-  const turnIndex = speaker === 'A' ? debate.countA : debate.countB;
-  const content = MOCK_DEBATE_CONTENT[speaker]?.[turnIndex] ?? 'No mock content available for this turn.';
+  // Pick random content from mock data pool
+  const pool = MOCK_DEBATE_CONTENT[speaker];
+  const content = pool?.length ? pool[Math.floor(Math.random() * pool.length)] : 'No mock content available for this turn.';
 
   setupSSE(res);
 

@@ -292,6 +292,7 @@ export function initSetupPhase(state: AppState) {
         judgeTopP: config.kiosk.judgeTopP,
         judgeTopK: config.kiosk.judgeTopK,
         judgeMaxTokens: config.kiosk.judgeMaxTokens,
+        maxTurns: config.kiosk.maxTurns ?? config.debate.maxTurns,
       };
 
       // Set state from kiosk config
@@ -299,6 +300,7 @@ export function initSetupPhase(state: AppState) {
         promptA: config.kiosk.promptA || '',
         promptB: config.kiosk.promptB || '',
         promptJudge: config.kiosk.promptJudge || '',
+        maxTurns: config.kiosk.maxTurns ?? 3,
         temperature: config.kiosk.temperature,
         topP: config.kiosk.topP,
         topK: config.kiosk.topK,
@@ -345,6 +347,7 @@ export function initSetupPhase(state: AppState) {
         judgeTopP: settings.judgeTopP !== undefined ? settings.judgeTopP : undefined,
         judgeTopK: settings.judgeTopK !== undefined ? settings.judgeTopK : undefined,
         judgeMaxTokens: settings.judgeMaxTokens !== undefined ? settings.judgeMaxTokens : undefined,
+        maxTurns: settings.maxTurns,
       };
     }
 
@@ -468,6 +471,7 @@ export function initSetupPhase(state: AppState) {
           judgeTopP: state.advancedSettings.judgeTopP,
           judgeTopK: state.advancedSettings.judgeTopK,
           judgeMaxTokens: state.advancedSettings.judgeMaxTokens,
+          maxTurns: state.advancedSettings.maxTurns,
         };
         sessionStorage.save(saveConfig).catch(err => {
           console.warn('[Session] Save failed:', (err as Error).message);
@@ -493,6 +497,7 @@ export function initSetupPhase(state: AppState) {
       state.countA = 0;
       state.countB = 0;
       state.autoJudge = data.autoJudge || false;
+      state.maxTurns = state.advancedSettings.maxTurns;
 
       // Setup debate view
       const ds = $('debateStatement');

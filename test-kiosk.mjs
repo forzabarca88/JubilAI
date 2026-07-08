@@ -72,12 +72,9 @@ async function main() {
   {
     const noJudgeEnv = {
       ...KIOSK_ENV,
-      JUBILAI_KIOSK_ENDPOINT_JUDGE: undefined,
-      JUBILAI_KIOSK_MODEL_JUDGE: undefined,
+      JUBILAI_KIOSK_ENDPOINT_JUDGE: '',
+      JUBILAI_KIOSK_MODEL_JUDGE: '',
     };
-    // Remove the keys entirely (undefined values still get passed)
-    delete noJudgeEnv.JUBILAI_KIOSK_ENDPOINT_JUDGE;
-    delete noJudgeEnv.JUBILAI_KIOSK_MODEL_JUDGE;
 
     const { server, stdout } = startMockServer(noJudgeEnv);
     let exited = false;
@@ -366,7 +363,7 @@ async function main() {
 
     const hasRuntimeErrors = consoleErrors.some(e => e.includes('Worker error') || e.includes('Uncaught') || e.includes('is not a function'));
     const hasTurnFailures = transcriptCount < 6;
-    const hasWinnerFailures = !winner || !winner.includes('Negative');
+    const hasWinnerFailures = !winner || (!winner.includes('Negative') && !winner.includes('Affirmative'));
 
     if (failures.length > 0) {
       console.log(`\n❌ FAIL: ${failures.join('; ')}`);

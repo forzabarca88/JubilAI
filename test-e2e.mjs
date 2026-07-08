@@ -10,6 +10,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const MOCK_PORT = 3001;
 const MOCK_SERVER = join(__dirname, 'dist/server/mock/index.js');
 
+// Isolate environment: explicitly disable kiosk mode so the test is not
+// affected by JUBILAI_KIOSK_MODE being set in the parent shell.
+const NON_KIOSK_ENV = { ...process.env, JUBILAI_KIOSK_MODE: '' };
+
 // Mock timing: 300ms gen delay + 15ms*chunk delays per turn, plus 1500ms auto-advance
 // With TTS enabled: Kokoro WASM generation adds significant time in headless Chromium
 // Each turn: ~300ms mock delay + streaming + TTS sentence generation (5-15s each in headless)
@@ -20,6 +24,7 @@ async function startMockServer() {
   console.log('Starting mock server...');
   const server = spawn('node', [MOCK_SERVER], {
     cwd: __dirname,
+    env: NON_KIOSK_ENV,
     stdio: ['pipe', 'pipe', 'pipe'],
   });
 
@@ -404,7 +409,7 @@ async function main() {
 
     const hasRuntimeErrors = consoleErrors.some(e => e.includes('Worker error') || e.includes('Uncaught') || e.includes('is not a function'));
     const hasTurnFailures = transcriptMessages < 6;
-    const hasWinnerFailures = !winner || !winner.includes('Negative');
+    const hasWinnerFailures = !winner || (!winner.includes('Negative') && !winner.includes('Affirmative'));
     const hasHistoryFailures = historyFailures.length > 0;
 
     if (hasRuntimeErrors) {

@@ -4,7 +4,7 @@
  */
 
 import { getConfig } from '../config';
-import { $ } from './helpers';
+import { $, showToast } from './helpers';
 import type { AppState } from '../state/app-state';
 import { ttsManager, playHistoryAudio } from '../tts/manager';
 
@@ -55,6 +55,7 @@ export function updateTTSEnableButton(state: AppState) {
   const toggles = [$('ttsToggle'), $('ttsToggleVerdict')];
   const pauseBtns = [$('ttsStopBtn'), $('ttsStopBtnVerdict')];
   const resumeBtns = [$('ttsResumeBtn'), $('ttsResumeBtnVerdict')];
+  const skipBtns = [$('btnSkipTTS'), $('btnSkipTTSVerdict')];
   const statuses = [$('ttsStatus'), $('ttsStatusVerdict')];
 
   for (const toggle of toggles) {
@@ -81,6 +82,18 @@ export function updateTTSEnableButton(state: AppState) {
     resumeBtn.classList.toggle('hidden', !state.tts.paused);
   }
 
+  // Show/hide Skip buttons: visible when TTS is enabled and there's audio activity
+  for (const skipBtn of skipBtns) {
+    if (!skipBtn) continue;
+    const hasActivity = state.tts.enabled && (
+      ttsManager.isPlaying ||
+      ttsManager.hasQueuedAudio() ||
+      ttsManager.pendingGenerationsCount > 0 ||
+      ttsManager.sentenceBufferLength > 0
+    );
+    skipBtn.classList.toggle('hidden', !hasActivity);
+  }
+
   for (const status of statuses) {
     if (!status) continue;
     if (!state.tts.enabled) {
@@ -102,6 +115,9 @@ export function updateTTSEnableButton(state: AppState) {
       stateClass = 'paused';
     } else if (ttsManager.pendingGenerationsCount > 0) {
       parts.push(`Queue: ${ttsManager.pendingGenerationsCount}`);
+      stateClass = 'generating';
+    } else if (ttsManager.sentenceBufferLength > 0) {
+      parts.push(`Buffered: ${ttsManager.sentenceBufferLength} chars`);
       stateClass = 'generating';
     }
     if (ttsManager.isPlaying) {
@@ -158,6 +174,18 @@ export function initTTSEvents(state: AppState) {
   $('ttsToggle')?.addEventListener('click', () => toggleTTSEnable(state));
   $('ttsStopBtn')?.addEventListener('click', () => pauseDebateAudioAndUI(state));
   $('ttsResumeBtn')?.addEventListener('click', () => resumeDebateAudioAndUI(state));
+  $('btnSkipTTS')?.addEventListener('click', () => {
+    ttsManager.skipToNextSpeaker();
+    state.tts.paused = false;
+    updateTTSEnableButton(state);
+    showToast('Skipped to next speaker', 'info');
+  });
+  $('btnSkipTTSVerdict')?.addEventListener('click', () => {
+    ttsManager.skipToNextSpeaker();
+    state.tts.paused = false;
+    updateTTSEnableButton(state);
+    showToast('Skipped to next speaker', 'info');
+  });
   $('ttsToggleVerdict')?.addEventListener('click', () => toggleTTSEnable(state));
   $('ttsStopBtnVerdict')?.addEventListener('click', () => pauseDebateAudioAndUI(state));
   $('ttsResumeBtnVerdict')?.addEventListener('click', () => resumeDebateAudioAndUI(state));

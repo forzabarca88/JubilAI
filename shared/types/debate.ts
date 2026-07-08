@@ -86,6 +86,8 @@ export interface DebateCreateRequest {
   judgeTopP?: number;
   judgeTopK?: number;
   judgeMaxTokens?: number;
+  // Optional: number of turns per side (1-5)
+  maxTurns?: number;
 }
 
 export interface DebateResponse {

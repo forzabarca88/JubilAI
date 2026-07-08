@@ -175,6 +175,11 @@ export const SETUP_BINDINGS: FieldBinding[] = [
     type: 'input',
     defaultValue: '',
   },
+  {
+    id: 'maxTurnsDebate',
+    type: 'input',
+    defaultValue: '3',
+  },
 
   // ── Advanced settings: judge params ─────────────────────────────
   {
@@ -370,6 +375,10 @@ export function syncDomToState(state: AppState, bindings: FieldBinding[] = SETUP
       topP: (v) => { state.advancedSettings.topP = v === '' ? undefined : parseFloat(v as string); },
       topK: (v) => { state.advancedSettings.topK = v === '' ? undefined : parseInt(v as string, 10); },
       maxTokens: (v) => { state.advancedSettings.maxTokens = v === '' ? undefined : parseInt(v as string, 10); },
+      maxTurnsDebate: (v) => {
+        const n = v === '' ? 3 : parseInt(v as string, 10);
+        state.advancedSettings.maxTurns = Math.min(5, Math.max(1, n));
+      },
       judgeTemperature: (v) => { state.advancedSettings.judgeTemperature = v === '' ? undefined : parseFloat(v as string); },
       judgeTopP: (v) => { state.advancedSettings.judgeTopP = v === '' ? undefined : parseFloat(v as string); },
       judgeTopK: (v) => { state.advancedSettings.judgeTopK = v === '' ? undefined : parseInt(v as string, 10); },
@@ -408,6 +417,7 @@ export function syncStateToDom(state: AppState, bindings: FieldBinding[] = SETUP
         topP: () => state.advancedSettings.topP,
         topK: () => state.advancedSettings.topK,
         maxTokens: () => state.advancedSettings.maxTokens,
+        maxTurnsDebate: () => state.advancedSettings.maxTurns,
         judgeTemperature: () => state.advancedSettings.judgeTemperature,
         judgeTopP: () => state.advancedSettings.judgeTopP,
         judgeTopK: () => state.advancedSettings.judgeTopK,
@@ -434,6 +444,7 @@ export function syncStateToDom(state: AppState, bindings: FieldBinding[] = SETUP
       topP: () => state.advancedSettings.topP,
       topK: () => state.advancedSettings.topK,
       maxTokens: () => state.advancedSettings.maxTokens,
+      maxTurnsDebate: () => state.advancedSettings.maxTurns,
       judgeTemperature: () => state.advancedSettings.judgeTemperature,
       judgeTopP: () => state.advancedSettings.judgeTopP,
       judgeTopK: () => state.advancedSettings.judgeTopK,
@@ -460,6 +471,7 @@ export function gatherAdvancedSettingsFromDom(): {
   promptA: string;
   promptB: string;
   promptJudge: string;
+  maxTurns: number;
   temperature: number | undefined;
   topP: number | undefined;
   topK: number | undefined;
@@ -480,11 +492,16 @@ export function gatherAdvancedSettingsFromDom(): {
   const judgeTopP = $('judgeTopP') as HTMLInputElement | null;
   const judgeTopK = $('judgeTopK') as HTMLInputElement | null;
   const judgeMaxTokens = $('judgeMaxTokens') as HTMLInputElement | null;
+  const maxTurnsDebate = $('maxTurnsDebate') as HTMLInputElement | null;
 
   return {
     promptA: promptA?.value.trim() || '',
     promptB: promptB?.value.trim() || '',
     promptJudge: promptJudge?.value.trim() || '',
+    maxTurns: (() => {
+      const v = maxTurnsDebate?.value;
+      return v === '' ? 3 : Math.min(5, Math.max(1, parseInt(v, 10)));
+    })(),
     temperature: temperature?.value ? parseFloat(temperature.value) : undefined,
     topP: topP?.value ? parseFloat(topP.value) : undefined,
     topK: topK?.value ? parseInt(topK.value, 10) : undefined,
