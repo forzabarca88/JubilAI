@@ -13,6 +13,8 @@ export interface DebateConfig {
   autoAdvanceDelayMs: number;
   autoJudgeDelayMs: number;
   retryDelayMs: number;
+  retryTimeoutMs: number;
+  startupTimeoutMs: number;
   winnerPattern: string;
 }
 

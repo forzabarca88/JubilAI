@@ -49,10 +49,15 @@ router.post('/debate/:id/next-turn', findDebate, async (req: Request, res: Respo
 
   const client = createClient(endpoint, apiKey);
 
+  console.log(`[Turn] Speaker ${speaker} (${model}) @ ${endpoint}`);
+  console.log(`[Turn] System prompt: ${systemPrompt.substring(0, 120)}...`);
+  console.log(`[Turn] Conversation history: ${debate.messages.length} messages`);
+
   setupSSE(res);
 
   async function runStream(): Promise<string> {
     let content = '';
+    let chunkCount = 0;
 
     // Build stream options with flexible typing for non-standard params (top_k, etc.)
     const streamOptions: Record<string, unknown> = {
@@ -71,6 +76,8 @@ router.post('/debate/:id/next-turn', findDebate, async (req: Request, res: Respo
       streamOptions.max_tokens = debate.maxTokens;
     }
 
+    console.log(`[Turn] Stream options: model=${model}, temperature=${streamOptions.temperature}`);
+
     const result = await withRetry(() => client.chat.completions.create(streamOptions as any));
 
     // Handle both streaming (async iterable) and non-streaming responses
@@ -79,9 +86,11 @@ router.post('/debate/:id/next-turn', findDebate, async (req: Request, res: Respo
         const delta = chunk.choices?.[0]?.delta?.content || '';
         if (delta) {
           content += delta;
+          chunkCount++;
           sendChunk(res, delta);
         }
       }
+      console.log(`[Turn] Stream complete: ${chunkCount} chunks, ${content.length} chars`);
     } else {
       // Non-streaming response (single completion)
       const text = (result as any).choices?.[0]?.message?.content || '';
@@ -89,11 +98,13 @@ router.post('/debate/:id/next-turn', findDebate, async (req: Request, res: Respo
         content = text;
         sendChunk(res, text);
       }
+      console.log(`[Turn] Non-streaming response: ${content.length} chars`);
     }
     return content;
   }
 
   try {
+    console.log(`[Turn] Starting stream for speaker ${speaker}...`);
     let fullContent;
     fullContent = await runStream();
 

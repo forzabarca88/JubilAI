@@ -40,17 +40,25 @@ function startMockServer(envOverrides = {}) {
   return { server, stdout };
 }
 
-async function waitForServerStart(stdout, timeoutMs = 10000) {
+async function waitForServerStart(stdout, timeoutMs = 15000) {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       reject(new Error(`Mock server failed to start: ${stdout.join('').trim()}`));
     }, timeoutMs);
 
     const check = setInterval(() => {
-      if (stdout.some(s => s.includes(`running at`))) {
+      const output = stdout.join('');
+      // Wait for validation to complete (prints after server is listening)
+      if (output.includes('Validation complete') || output.includes('shutting down')) {
         clearTimeout(timeout);
         clearInterval(check);
-        resolve();
+        resolve(output);
+      }
+      // Fallback: if no kiosk validation (kiosk disabled), "running at" is enough
+      if (!output.includes('Kiosk mode enabled') && output.includes('running at')) {
+        clearTimeout(timeout);
+        clearInterval(check);
+        resolve(output);
       }
     }, 200);
   });
@@ -102,9 +110,25 @@ async function main() {
   // ── Test 2: Server starts with all required kiosk vars ──
   console.log('\n=== Test 2: Server starts with all required kiosk vars ===');
   const { server, stdout } = startMockServer(KIOSK_ENV);
-  await waitForServerStart(stdout);
+  const output = await waitForServerStart(stdout);
   console.log(stdout.join('').trim());
-  console.log('  ✓ Server started successfully with kiosk mode');
+
+  if (output.includes('shutting down')) {
+    console.log(`  ❌ FAIL: Server shut down during validation. Output: ${output.slice(-300)}`);
+    failures.push('Server shut down during kiosk validation');
+    server.kill();
+    process.exit(1);
+  }
+  if (output.includes('Validation complete') && output.includes('0 failed')) {
+    console.log('  ✓ Server started successfully with kiosk mode (all endpoints validated)');
+  } else if (output.includes('Validation complete')) {
+    console.log(`  ❌ FAIL: Validation had failures. Output: ${output.slice(-300)}`);
+    failures.push('Kiosk validation had failures');
+    server.kill();
+    process.exit(1);
+  } else {
+    console.log('  ✓ Server started successfully with kiosk mode');
+  }
 
   try {
     const browser = await chromium.launch();

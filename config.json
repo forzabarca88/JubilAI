@@ -12,6 +12,8 @@
     "autoAdvanceDelayMs": 1500,
     "autoJudgeDelayMs": 1000,
     "retryDelayMs": 5000,
+    "retryTimeoutMs": 120000,
+    "startupTimeoutMs": 5000,
     "winnerPattern": "Winner:\\s*(The\\s+(Affirmative|Negative))"
   },
   "llm": {
