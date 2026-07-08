@@ -17,7 +17,8 @@
     "dev:mock": "tsx watch mock/index.ts",
     "typecheck": "tsc --noEmit -p tsconfig.server.json && tsc --noEmit -p tsconfig.client.json",
     "clean": "rm -rf dist",
-    "build:docker": "docker build -t jubilai ."
+    "build:docker": "docker build -t jubilai .",
+    "test": "node test-e2e.mjs && node test-kiosk.mjs"
   },
   "dependencies": {
     "cors": "^2.8.5",

@@ -938,6 +938,15 @@ html[data-kiosk="true"] .setup-config-section {
   display: none;
 }
 
+html[data-kiosk="true"] .side-card,
+html[data-kiosk="true"] .judge-card {
+  display: none;
+}
+
+html[data-kiosk="true"] .advanced-settings-card {
+  display: none;
+}
+
 html[data-kiosk="true"] .arena-nav #btnHistory {
   display: none;
 }

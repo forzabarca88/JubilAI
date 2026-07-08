@@ -51,25 +51,30 @@ Tweak the debate to your liking. The collapsible **Advanced Settings** panel let
 ### 🎪 Kiosk Mode (The "Just Show Me" Mode)
 Want to deploy jubilAI on a public display, a conference booth, or a classroom screen? **Kiosk Mode** strips away all the configuration UI and leaves you with a clean interface: just a statement textarea and a big "Start Debate" button. Everything else — endpoints, API keys, model choices, judge settings, advanced parameters — is pre-configured on the server.
 
-Turn it on by setting environment variables:
+Turn it on by exporting environment variables before starting the server:
 ```bash
-JUBILAI_KIOSK_MODE=true \
-JUBILAI_KIOSK_ENDPOINT_A=http://localhost:11434 \
-JUBILAI_KIOSK_API_KEY_A=sk-abc123 \
-JUBILAI_KIOSK_MODEL_A=llama3.1 \
-JUBILAI_KIOSK_ENDPOINT_B=http://localhost:8080 \
-JUBILAI_KIOSK_API_KEY_B=sk-def456 \
-JUBILAI_KIOSK_MODEL_B=mixtral-8x7b \
+export JUBILAI_KIOSK_MODE=true
+export JUBILAI_KIOSK_ENDPOINT_A=http://localhost:11434
+export JUBILAI_KIOSK_API_KEY_A=sk-abc123
+export JUBILAI_KIOSK_MODEL_A=llama3.1
+export JUBILAI_KIOSK_ENDPOINT_B=http://localhost:8080
+export JUBILAI_KIOSK_API_KEY_B=sk-def456
+export JUBILAI_KIOSK_MODEL_B=mixtral-8x7b
+export JUBILAI_KIOSK_ENDPOINT_JUDGE=http://localhost:11434
+export JUBILAI_KIOSK_MODEL_JUDGE=gemma:7b
+
 npm start
 ```
 
-API keys are optional — if you're using local endpoints that don't require auth, skip them. You can also pre-configure a judge (`JUBILAI_KIOSK_ENDPOINT_JUDGE`, `JUBILAI_KIOSK_API_KEY_JUDGE`, `JUBILAI_KIOSK_MODEL_JUDGE`) and custom prompts or inference parameters (`JUBILAI_KIOSK_TEMPERATURE`, `JUBILAI_KIOSK_MAX_TOKENS`, etc.).
+**Required**: `JUBILAI_KIOSK_MODE=true`, `JUBILAI_KIOSK_ENDPOINT_A`, `JUBILAI_KIOSK_MODEL_A`, `JUBILAI_KIOSK_ENDPOINT_B`, `JUBILAI_KIOSK_MODEL_B`, `JUBILAI_KIOSK_ENDPOINT_JUDGE`, `JUBILAI_KIOSK_MODEL_JUDGE`. The server will refuse to start if any required field is missing when kiosk mode is enabled.
+
+API keys are optional — if you're using local endpoints that don't require auth, skip them. You can also pre-configure custom prompts or inference parameters (`JUBILAI_KIOSK_TEMPERATURE`, `JUBILAI_KIOSK_MAX_TOKENS`, etc.).
 
 In kiosk mode:
 - **Configuration UI is hidden** — no endpoints, models, or advanced settings visible
 - **History panel is disabled** — no browsing past debates from the UI
 - **Session restore is skipped** — config comes from the server, not the browser
-- **Judge-select phase is skipped** — if no judge is pre-configured, the debate completes without a verdict
+- **Judge-select phase is skipped** — the judge is always pre-configured in kiosk mode
 - **"New Dispute" preserves config** — resets the statement but keeps all server-provided settings
 
 ### 🛠️ The "Just Let Me Play" Mode (Mock Server)

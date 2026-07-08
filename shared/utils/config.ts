@@ -96,6 +96,8 @@ function loadConfig(): RootConfig {
       ['kiosk.modelA', () => typeof parsed.kiosk.modelA === 'string' && parsed.kiosk.modelA.length > 0],
       ['kiosk.endpointB', () => typeof parsed.kiosk.endpointB === 'string' && parsed.kiosk.endpointB.length > 0],
       ['kiosk.modelB', () => typeof parsed.kiosk.modelB === 'string' && parsed.kiosk.modelB.length > 0],
+      ['kiosk.endpointJudge', () => typeof parsed.kiosk.endpointJudge === 'string' && parsed.kiosk.endpointJudge.length > 0],
+      ['kiosk.modelJudge', () => typeof parsed.kiosk.modelJudge === 'string' && parsed.kiosk.modelJudge.length > 0],
     ];
     for (const [field, check] of kioskRequired) {
       if (!check()) {

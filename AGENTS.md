@@ -3,7 +3,7 @@
 - When modifying existing files, avoid rewriting unless `edit` fails 3+ times.
 - After every change, review whether AGENTS.md needs updating. This file MUST be minimal and considered an index for critical project information only.
 - The .references directory may contain documentation about specific topics, check this for relevant material when implemented or debugging features.
-- **Always verify changes with `node test-e2e.mjs`** — runs a full debate flow against the mock server via Playwright.
+- **Always verify changes with `npm run test`** — runs both the standard and kiosk-mode E2E tests against the mock server via Playwright.
 
 # Architecture
 
