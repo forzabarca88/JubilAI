@@ -60,3 +60,15 @@ export function scrollVerdictToBottom() {
   const vr = $('verdictReasoning');
   if (vr) vr.scrollTop = vr.scrollHeight;
 }
+
+/**
+ * Safely parse a JSON string, returning null on failure.
+ * Used for SSE event parsing where fragmented events may produce invalid JSON.
+ */
+export function safeJsonParse(str: string): unknown | null {
+  try {
+    return JSON.parse(str);
+  } catch {
+    return null;
+  }
+}

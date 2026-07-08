@@ -79,10 +79,15 @@ Format your response starting with "Winner: The Affirmative" or "Winner: The Neg
 
   const client = createClient(debate.endpointJudge!, debate.apiKeyJudge ?? undefined);
 
+  console.log(`[Verdict] Judge: ${debate.judgeModel} @ ${debate.endpointJudge}`);
+  console.log(`[Verdict] Messages: ${debate.messages.length} (${debate.countA}A, ${debate.countB}B)`);
+  console.log(`[Verdict] Starting stream...`);
+
   setupSSE(res);
 
   async function runStream(): Promise<string> {
     let content = '';
+    let chunkCount = 0;
 
     // Build stream options with flexible typing for non-standard params (top_k, etc.)
     const streamOptions: Record<string, unknown> = {
@@ -101,6 +106,8 @@ Format your response starting with "Winner: The Affirmative" or "Winner: The Neg
       streamOptions.max_tokens = debate.judgeMaxTokens;
     }
 
+    console.log(`[Verdict] Stream options: model=${debate.judgeModel}, temperature=${streamOptions.temperature}`);
+
     const result = await withRetry(() => client.chat.completions.create(streamOptions as any));
 
     // Handle both streaming (async iterable) and non-streaming responses
@@ -109,9 +116,11 @@ Format your response starting with "Winner: The Affirmative" or "Winner: The Neg
         const delta = chunk.choices?.[0]?.delta?.content || '';
         if (delta) {
           content += delta;
+          chunkCount++;
           sendChunk(res, delta);
         }
       }
+      console.log(`[Verdict] Stream complete: ${chunkCount} chunks, ${content.length} chars`);
     } else {
       // Non-streaming response (single completion)
       const text = (result as any).choices?.[0]?.message?.content || '';
@@ -119,6 +128,7 @@ Format your response starting with "Winner: The Affirmative" or "Winner: The Neg
         content = text;
         sendChunk(res, text);
       }
+      console.log(`[Verdict] Non-streaming response: ${content.length} chars`);
     }
     return content;
   }
@@ -136,13 +146,16 @@ Format your response starting with "Winner: The Affirmative" or "Winner: The Neg
     const winnerMatch = fullContent.match(config.debate.winnerPattern);
     const winner = winnerMatch ? 'The ' + winnerMatch[2] : null;
 
+    console.log(`[Verdict] Winner: ${winner ?? 'none detected'}, verdict: ${fullContent.substring(0, 100)}...`);
+    console.log(`[Verdict] Saving debate to disk...`);
+
     const doneData: Omit<SSDoneEvent, 'type'> = {
       winner,
       verdict: fullContent,
     };
     sendDone(res, doneData);
   } catch (err) {
-    console.error('Judge streaming error:', (err as Error).message);
+    console.error(`[Verdict] Streaming error: ${(err as Error).message}`);
     sendError(res, (err as Error).message);
   }
 

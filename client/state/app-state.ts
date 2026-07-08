@@ -11,6 +11,7 @@ export interface AdvancedSettings {
   promptA: string;
   promptB: string;
   promptJudge: string;
+  maxTurns: number;
   temperature: number | undefined;
   topP: number | undefined;
   topK: number | undefined;
@@ -79,6 +80,7 @@ export class AppState {
     promptA: '',
     promptB: '',
     promptJudge: '',
+    maxTurns: 3,
     temperature: undefined,
     topP: undefined,
     topK: undefined,
@@ -117,6 +119,7 @@ export class AppState {
       promptA: '',
       promptB: '',
       promptJudge: '',
+      maxTurns: 3,
       temperature: undefined,
       topP: undefined,
       topK: undefined,

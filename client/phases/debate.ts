@@ -4,7 +4,7 @@
  */
 
 import { getConfig } from '../config';
-import { $, showToast, showPhase, scrollToBottom } from '../dom/helpers';
+import { $, showToast, showPhase, scrollToBottom, safeJsonParse } from '../dom/helpers';
 import { apiClient } from '../api/client';
 import type { AppState } from '../state/app-state';
 import { startDebateAudio, stopDebateAudio, pauseDebateAudio, resumeDebateAudio, feedAudioText, finishDebateAudio } from '../tts/manager';
@@ -70,97 +70,107 @@ export async function executeNextTurn(state: AppState) {
 
     const reader = res.body!.getReader();
     const decoder = new TextDecoder();
+    let sseBuffer = '';
 
     while (true) {
       const { done, value } = await reader.read();
-      if (done) break;
 
-      const chunk = decoder.decode(value, { stream: true });
-      const lines = chunk.split('\n');
+      // Accumulate decoded text in buffer
+      sseBuffer += decoder.decode(value, { stream: true });
 
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const data = JSON.parse(line.slice(6)) as {
-            type: string;
-            content?: string;
-            debateComplete?: boolean;
-            nextSpeaker?: string | null;
-            winner?: string | null;
-            verdict?: string;
-            countA?: number;
-            countB?: number;
-            autoJudge?: boolean;
-            error?: string;
-          };
+      // Split on SSE event boundary (double newline)
+      const parts = sseBuffer.split('\n\n');
+      // Keep the last (possibly incomplete) part in buffer
+      sseBuffer = parts.pop() ?? '';
 
-          if (data.type === 'chunk') {
-            fullContent += data.content!;
-            contentEl.innerHTML = marked.parse(fullContent);
-            scrollToBottom();
+      if (done && sseBuffer.trim() !== '') {
+        // Stream ended with incomplete event — process it as best we can
+        parts.push(sseBuffer);
+        sseBuffer = '';
+      }
 
-            if (state.tts.enabled) {
-              feedAudioText(data.content!, activeSpeaker);
-            }
-          } else if (data.type === 'done') {
-            contentEl.classList.remove('streaming');
-            contentEl.innerHTML = marked.parse(fullContent);
+      let finished = false;
+      for (const event of parts) {
+        if (finished) break;
+        const lines = event.split('\n');
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = safeJsonParse(line.slice(6));
+            if (!data || typeof data !== 'object') continue;
+            const d = data as any;
 
-            if (state.tts.enabled) {
-              finishDebateAudio(activeSpeaker);
-            }
+            if (d.type === 'chunk') {
+              fullContent += d.content!;
+              contentEl.innerHTML = marked.parse(fullContent);
+              scrollToBottom();
 
-            state.debateData!.messages.push({
-              speaker: activeSpeaker,
-              content: fullContent,
-              model: model,
-              timestamp: Date.now(),
-            });
-            state.countA = data.countA ?? state.countA;
-            state.countB = data.countB ?? state.countB;
-            renderDebateProgress(state);
-
-            if (data.debateComplete) {
-              state.currentSpeaker = null;
-              state.isStreaming = false;
-              hideRetryTurn();
-              stopTTSStatusPoll();
-              updateDebateStatus(state);
-
-              if (data.autoJudge) {
-                await new Promise(resolve => setTimeout(resolve, getConfig().debate.autoJudgeDelayMs));
-                await runVerdict(state.debateData!.judgeModel!, state.debateData!.endpointJudge!, state);
-              } else if (getConfig().kiosk.enabled) {
-                // Kiosk mode without pre-configured judge: show completion message
-                showToast('No judge configured — debate complete', 'info');
-              } else {
-                await transitionToJudgeSelect(state);
+              if (state.tts.enabled) {
+                feedAudioText(d.content!, activeSpeaker);
               }
-              return;
-            } else {
-              state.currentSpeaker = data.nextSpeaker as 'A' | 'B' | null;
+            } else if (d.type === 'done') {
+              contentEl.classList.remove('streaming');
+              contentEl.innerHTML = marked.parse(fullContent);
+
+              if (state.tts.enabled) {
+                finishDebateAudio(activeSpeaker);
+              }
+
+              state.debateData!.messages.push({
+                speaker: activeSpeaker,
+                content: fullContent,
+                model: model,
+                timestamp: Date.now(),
+              });
+              state.countA = d.countA ?? state.countA;
+              state.countB = d.countB ?? state.countB;
+              renderDebateProgress(state);
+
+              if (d.debateComplete) {
+                state.currentSpeaker = null;
+                state.isStreaming = false;
+                hideRetryTurn();
+                stopTTSStatusPoll();
+                updateDebateStatus(state);
+
+                if (d.autoJudge) {
+                  await new Promise(resolve => setTimeout(resolve, getConfig().debate.autoJudgeDelayMs));
+                  await runVerdict(state.debateData!.judgeModel!, state.debateData!.endpointJudge!, state);
+                } else if (getConfig().kiosk.enabled) {
+                  showToast('No judge configured — debate complete', 'info');
+                } else {
+                  await transitionToJudgeSelect(state);
+                }
+                return;
+              } else {
+                state.currentSpeaker = d.nextSpeaker as 'A' | 'B' | null;
+                state.isStreaming = false;
+                hideRetryTurn();
+                stopTTSStatusPoll();
+                updateDebateStatus(state);
+
+                await new Promise(resolve => setTimeout(resolve, getConfig().debate.autoAdvanceDelayMs));
+                await executeNextTurn(state);
+                finished = true;
+                break;
+              }
+            } else if (d.type === 'error') {
+              contentEl.classList.remove('streaming');
+              contentEl.textContent = `Error: ${d.error}`;
+              contentEl.style.color = '#e74c3c';
+              showToast('Error: ' + d.error!, 'error');
+              if (state.tts.enabled) await finishDebateAudio(activeSpeaker);
               state.isStreaming = false;
-              hideRetryTurn();
               stopTTSStatusPoll();
               updateDebateStatus(state);
-
-              await new Promise(resolve => setTimeout(resolve, getConfig().debate.autoAdvanceDelayMs));
-              await executeNextTurn(state);
+              showRetryTurn();
+              finished = true;
               break;
             }
-          } else if (data.type === 'error') {
-            contentEl.classList.remove('streaming');
-            contentEl.textContent = `Error: ${data.error}`;
-            contentEl.style.color = '#e74c3c';
-            showToast('Error: ' + data.error!, 'error');
-            if (state.tts.enabled) await finishDebateAudio(activeSpeaker);
-            state.isStreaming = false;
-            stopTTSStatusPoll();
-            updateDebateStatus(state);
-            showRetryTurn();
-            break;
           }
         }
       }
+
+      if (done || finished) break;
     }
   } catch (err) {
     contentEl.classList.remove('streaming');

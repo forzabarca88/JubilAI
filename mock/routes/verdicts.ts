@@ -7,7 +7,7 @@ import { Debate } from '../../shared/types/debate';
 import { SSDoneEvent } from '../../shared/types/sse';
 import { saveDebate } from '../../shared/utils/debate-storage';
 import config from '../../shared/utils/config';
-import { MOCK_JUDGE_VERDICT } from '../data/mock-data';
+import { MOCK_JUDGE_VERDICTS } from '../data/mock-data';
 
 const router = Router();
 
@@ -52,7 +52,7 @@ router.post('/debate/:id/verdict', findDebate, async (req: Request, res: Respons
   // Simulate generation delay
   await new Promise(resolve => setTimeout(resolve, config.mock.verdictGenerationDelayMs));
 
-  const content = MOCK_JUDGE_VERDICT;
+  const content = MOCK_JUDGE_VERDICTS[Math.floor(Math.random() * MOCK_JUDGE_VERDICTS.length)];
 
   setupSSE(res);
 

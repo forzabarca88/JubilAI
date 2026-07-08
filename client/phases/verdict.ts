@@ -4,7 +4,7 @@
  */
 
 import { getConfig } from '../config';
-import { $, showToast, showPhase, scrollVerdictToBottom } from '../dom/helpers';
+import { $, showToast, showPhase, scrollVerdictToBottom, safeJsonParse } from '../dom/helpers';
 import { apiClient } from '../api/client';
 import type { AppState } from '../state/app-state';
 import { startDebateAudio, stopDebateAudio, pauseDebateAudio, resumeDebateAudio, feedAudioText, finishDebateAudio, ttsManager } from '../tts/manager';
@@ -46,6 +46,7 @@ export async function runVerdict(judgeModel: string, endpointJudge: string, stat
     const reader = res.body!.getReader();
     const decoder = new TextDecoder();
     let fullContent = '';
+    let sseBuffer = '';
 
     // Initialize TTS for judge verdict (non-blocking — verdict proceeds even if TTS fails)
     if (state.tts.enabled) {
@@ -55,71 +56,81 @@ export async function runVerdict(judgeModel: string, endpointJudge: string, stat
 
     while (true) {
       const { done, value } = await reader.read();
-      if (done) break;
 
-      const chunk = decoder.decode(value, { stream: true });
-      const lines = chunk.split('\n');
+      // Accumulate decoded text in buffer
+      sseBuffer += decoder.decode(value, { stream: true });
 
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const data = JSON.parse(line.slice(6)) as {
-            type: string;
-            content?: string;
-            debateComplete?: boolean;
-            nextSpeaker?: string | null;
-            winner?: string | null;
-            verdict?: string;
-            countA?: number;
-            countB?: number;
-            autoJudge?: boolean;
-            error?: string;
-          };
+      // Split on SSE event boundary (double newline)
+      const parts = sseBuffer.split('\n\n');
+      // Keep the last (possibly incomplete) part in buffer
+      sseBuffer = parts.pop() ?? '';
 
-          if (data.type === 'chunk') {
-            fullContent += data.content!;
-            if (vr) vr.innerHTML = marked.parse(fullContent);
-            scrollVerdictToBottom();
+      if (done && sseBuffer.trim() !== '') {
+        // Stream ended with incomplete event — process it as best we can
+        parts.push(sseBuffer);
+        sseBuffer = '';
+      }
 
-            // Feed text to TTS for judge voice
-            if (state.tts.enabled) {
-              feedAudioText(data.content!, 'judge');
+      let finished = false;
+      for (const event of parts) {
+        if (finished) break;
+        const lines = event.split('\n');
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = safeJsonParse(line.slice(6));
+            if (!data || typeof data !== 'object') continue;
+            const d = data as any;
+
+            if (d.type === 'chunk') {
+              fullContent += d.content!;
+              if (vr) vr.innerHTML = marked.parse(fullContent);
+              scrollVerdictToBottom();
+
+              // Feed text to TTS for judge voice
+              if (state.tts.enabled) {
+                feedAudioText(d.content!, 'judge');
+              }
+            } else if (d.type === 'done') {
+              hideRetryVerdict(state);
+              if (vr) { vr.classList.remove('streaming'); vr.innerHTML = marked.parse(d.verdict!); }
+              if (d.winner && vw) {
+                vw.textContent = `🏆 Winner: ${d.winner}`;
+                const winnerClass = d.winner!.includes('Affirmative') ? 'affirmative' : 'negative';
+                vw.className = `verdict-winner ${winnerClass}`;
+              } else if (vw) {
+                vw.textContent = '⚖️ Verdict rendered';
+              }
+              if (st) st.textContent = 'Debate Complete';
+              showToast('Judgment complete!', 'success');
+
+              // Render transcript immediately so UI is responsive
+              renderTranscript(state);
+
+              // Flush TTS buffer after UI is updated (non-blocking for user)
+              if (state.tts.enabled) {
+                await finishDebateAudio('judge');
+              }
+              stopTTSStatusPoll();
+              finished = true;
+              break;
+            } else if (d.type === 'error') {
+              if (vr) { vr.classList.remove('streaming'); vr.textContent = `Error: ${d.error}`; }
+              showToast('Error: ' + d.error, 'error');
+              showRetryVerdict(state);
+              stopTTSStatusPoll();
+
+              // Render transcript immediately so UI is responsive
+              renderTranscript(state);
+
+              if (state.tts.enabled) { await finishDebateAudio('judge'); }
+              finished = true;
+              break;
             }
-          } else if (data.type === 'done') {
-            hideRetryVerdict(state);
-            if (vr) { vr.classList.remove('streaming'); vr.innerHTML = marked.parse(data.verdict!); }
-            if (data.winner && vw) {
-              vw.textContent = `🏆 Winner: ${data.winner}`;
-              const winnerClass = data.winner!.includes('Affirmative') ? 'affirmative' : 'negative';
-              vw.className = `verdict-winner ${winnerClass}`;
-            } else if (vw) {
-              vw.textContent = '⚖️ Verdict rendered';
-            }
-            if (st) st.textContent = 'Debate Complete';
-            showToast('Judgment complete!', 'success');
-
-            // Render transcript immediately so UI is responsive
-            renderTranscript(state);
-
-            // Flush TTS buffer after UI is updated (non-blocking for user)
-            if (state.tts.enabled) {
-              await finishDebateAudio('judge');
-            }
-            stopTTSStatusPoll();
-            break;
-          } else if (data.type === 'error') {
-            if (vr) { vr.classList.remove('streaming'); vr.textContent = `Error: ${data.error}`; }
-            showToast('Error: ' + data.error, 'error');
-            showRetryVerdict(state);
-            stopTTSStatusPoll();
-
-            // Render transcript immediately so UI is responsive
-            renderTranscript(state);
-
-            if (state.tts.enabled) { await finishDebateAudio('judge'); }
-            break;
           }
         }
       }
+
+      if (done || finished) break;
     }
 
     // Post-loop safeguard: if stream ended without a 'done' event, finalize UI

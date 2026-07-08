@@ -20,7 +20,7 @@ import type { AppState } from '../state/app-state';
 const SAFE_FIELDS = [
   'statement', 'endpointA', 'endpointB', 'endpointJudge', 'modelA', 'modelB', 'modelJudge',
   'promptA', 'promptB', 'promptJudge', 'temperature', 'topP', 'topK', 'maxTokens',
-  'judgeTemperature', 'judgeTopP', 'judgeTopK', 'judgeMaxTokens',
+  'judgeTemperature', 'judgeTopP', 'judgeTopK', 'judgeMaxTokens', 'maxTurns',
 ] as const;
 
 // Fields that contain secrets (API keys) — only stored when encryption is available
@@ -302,6 +302,7 @@ export class SessionStorage {
       ['judgeTopP', 'judgeTopP'],
       ['judgeTopK', 'judgeTopK'],
       ['judgeMaxTokens', 'judgeMaxTokens'],
+      ['maxTurnsDebate', 'maxTurns'],
     ];
 
     for (const [domId, cfgKey] of textFields) {

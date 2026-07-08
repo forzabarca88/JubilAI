@@ -362,6 +362,31 @@ export class RealtimeTTSManager {
     this.stopAudio();
   }
 
+  /**
+   * Skip current audio: stop playback, clear queue and pending generations.
+   * Keeps the sentence buffer intact so remaining streamed text continues
+   * accumulating and will be flushed by finishStreaming at stream end.
+   * Keeps the worker initialized and voice assignments intact for the next speaker.
+   */
+  skipToNextSpeaker() {
+    this._activeId = null;
+
+    // Stop current audio source
+    if (this.currentSource) {
+      try { this.currentSource.stop(); } catch { /* already stopped */ }
+      this.currentSource = null;
+    }
+
+    // Clear audio queue and pending generations
+    this.audioQueue = [];
+    this._pendingGenerations = [];
+    this._workerBusy = false;
+    this._isPlaying = false;
+    this._isPaused = false;
+    // NOTE: sentenceBuffer is NOT cleared — remaining streamed text
+    // keeps accumulating and will be flushed by finishStreaming()
+  }
+
   get isPlaying(): boolean {
     return this._isPlaying;
   }
@@ -376,6 +401,10 @@ export class RealtimeTTSManager {
 
   get pendingGenerationsCount(): number {
     return this._pendingGenerations.length;
+  }
+
+  get sentenceBufferLength(): number {
+    return this.sentenceBuffer.length;
   }
 }
 

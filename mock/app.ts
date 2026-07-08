@@ -1,6 +1,6 @@
 /** Express app factory for the mock server */
 
-import express, { Express } from 'express';
+import express, { Express, Router, Request, Response } from 'express';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
@@ -51,6 +51,20 @@ export function createApp(config: RootConfig): Express {
 
   // Mount API routes
   app.use('/api', routes);
+
+  // Mount /v1 routes (OpenAI-compatible) so the server can validate its own endpoints
+  // Startup validation uses createClient which appends /v1 to the base URL
+  const v1Router = Router();
+  v1Router.get('/models', (req: Request, res: Response) => {
+    const data = config.mock.models.map(id => ({ id }));
+    res.json({ data });
+  });
+  v1Router.post('/chat/completions', (req: Request, res: Response) => {
+    res.json({
+      choices: [{ message: { content: 'ok' } }],
+    });
+  });
+  app.use('/v1', v1Router);
 
   return app;
 }

@@ -65,6 +65,8 @@ function loadConfig(): RootConfig {
     ['debate.autoAdvanceDelayMs', () => typeof parsed.debate.autoAdvanceDelayMs === 'number'],
     ['debate.autoJudgeDelayMs', () => typeof parsed.debate.autoJudgeDelayMs === 'number'],
     ['debate.retryDelayMs', () => typeof parsed.debate.retryDelayMs === 'number'],
+    ['debate.retryTimeoutMs', () => typeof parsed.debate.retryTimeoutMs === 'number'],
+    ['debate.startupTimeoutMs', () => typeof parsed.debate.startupTimeoutMs === 'number'],
     ['debate.winnerPattern', () => typeof parsed.debate.winnerPattern === 'string'],
     ['llm.debaterDefaults.temperature', () => typeof parsed.llm.debaterDefaults.temperature === 'number' || parsed.llm.debaterDefaults.temperature === null],
     ['llm.judgeDefaults.temperature', () => typeof parsed.llm.judgeDefaults.temperature === 'number' || parsed.llm.judgeDefaults.temperature === null],

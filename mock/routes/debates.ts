@@ -17,6 +17,7 @@ router.post('/debate', (req: Request, res: Response): void => {
     modelA, modelB,
     endpointA, endpointB,
     judgeModel, endpointJudge,
+    maxTurns,
   } = body;
 
   if (!statement || !modelA || !modelB || !endpointA || !endpointB) {
@@ -41,7 +42,7 @@ router.post('/debate', (req: Request, res: Response): void => {
     nextSpeaker: sideAGoesFirst ? 'A' : 'B',
     countA: 0,
     countB: 0,
-    maxTurns: config.debate.maxTurns,
+    maxTurns: maxTurns ? Math.min(5, Math.max(1, maxTurns)) : config.debate.maxTurns,
     phase: 'debating',
     judgeModel: judgeModel || null,
     verdict: null,

@@ -42,6 +42,7 @@ export interface DebateCreateBody {
   judgeTopP?: number;
   judgeTopK?: number;
   judgeMaxTokens?: number;
+  maxTurns?: number;
 }
 
 export interface DebateCreateResponse {
