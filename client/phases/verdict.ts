@@ -8,7 +8,7 @@ import { $, showToast, showPhase, scrollVerdictToBottom, safeJsonParse } from '.
 import { apiClient } from '../api/client';
 import type { AppState } from '../state/app-state';
 import { startDebateAudio, stopDebateAudio, pauseDebateAudio, resumeDebateAudio, feedAudioText, finishDebateAudio, ttsManager } from '../tts/manager';
-import { startTTSStatusPoll, stopTTSStatusPoll } from '../dom/tts-ui';
+import { startTTSStatusPoll, stopTTSStatusPoll, updateTTSEnableButton } from '../dom/tts-ui';
 
 /** Run the judge verdict with streaming */
 export async function runVerdict(judgeModel: string, endpointJudge: string, state: AppState) {
@@ -36,7 +36,7 @@ export async function runVerdict(judgeModel: string, endpointJudge: string, stat
       const errBody = await res.text();
       if (vr) { vr.classList.remove('streaming'); vr.textContent = `Server error (${res.status}): ${errBody}`; }
       showToast(`Server error (${res.status}): ${errBody}`, 'error');
-      if (state.tts.enabled) { stopDebateAudio(state); }
+      if (state.tts.enabled) { stopDebateAudio(state); ttsManager.stopStreaming('judge'); updateTTSEnableButton(state); }
       stopTTSStatusPoll();
       showRetryVerdict(state);
       renderTranscript(state);
@@ -52,6 +52,12 @@ export async function runVerdict(judgeModel: string, endpointJudge: string, stat
     if (state.tts.enabled) {
       try { await ttsManager.initialize(); }
       catch (err) { console.warn('[TTS] Init failed for verdict:', (err as Error).message); state.tts.enabled = false; }
+    }
+
+    // Mark judge as actively streaming so skip button stays visible
+    if (state.tts.enabled) {
+      ttsManager.startStreaming('judge');
+      updateTTSEnableButton(state);
     }
 
     while (true) {
@@ -107,10 +113,12 @@ export async function runVerdict(judgeModel: string, endpointJudge: string, stat
               renderTranscript(state);
 
               // Flush TTS buffer after UI is updated (non-blocking for user)
-              if (state.tts.enabled) {
-                await finishDebateAudio('judge');
-              }
               stopTTSStatusPoll();
+              if (state.tts.enabled) {
+                ttsManager.stopStreaming('judge');
+                await finishDebateAudio('judge');
+                updateTTSEnableButton(state);
+              }
               finished = true;
               break;
             } else if (d.type === 'error') {
@@ -122,7 +130,7 @@ export async function runVerdict(judgeModel: string, endpointJudge: string, stat
               // Render transcript immediately so UI is responsive
               renderTranscript(state);
 
-              if (state.tts.enabled) { await finishDebateAudio('judge'); }
+              if (state.tts.enabled) { ttsManager.stopStreaming('judge'); await finishDebateAudio('judge'); updateTTSEnableButton(state); }
               finished = true;
               break;
             }
@@ -147,8 +155,8 @@ export async function runVerdict(judgeModel: string, endpointJudge: string, stat
     // Render transcript immediately so UI is responsive
     renderTranscript(state);
 
-    if (state.tts.enabled) { await finishDebateAudio('judge'); }
     stopTTSStatusPoll();
+    if (state.tts.enabled) { ttsManager.stopStreaming('judge'); await finishDebateAudio('judge'); updateTTSEnableButton(state); }
   } catch (err) {
     if (vr) { vr.classList.remove('streaming'); vr.textContent = 'Connection error'; }
     showToast('Network error: ' + (err as Error).message, 'error');
@@ -158,7 +166,7 @@ export async function runVerdict(judgeModel: string, endpointJudge: string, stat
     // Render transcript immediately so UI is responsive
     renderTranscript(state);
 
-    if (state.tts.enabled) { await finishDebateAudio('judge'); }
+    if (state.tts.enabled) { ttsManager.stopStreaming('judge'); await finishDebateAudio('judge'); updateTTSEnableButton(state); }
   }
 
   renderTranscript(state);

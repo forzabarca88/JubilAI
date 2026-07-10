@@ -83,13 +83,15 @@ export function updateTTSEnableButton(state: AppState) {
   }
 
   // Show/hide Skip buttons: visible when TTS is enabled and there's audio activity
+  // or when a speaker is actively streaming (button stays visible during streaming)
   for (const skipBtn of skipBtns) {
     if (!skipBtn) continue;
     const hasActivity = state.tts.enabled && (
       ttsManager.isPlaying ||
       ttsManager.hasQueuedAudio() ||
       ttsManager.pendingGenerationsCount > 0 ||
-      ttsManager.sentenceBufferLength > 0
+      ttsManager.sentenceBufferLength > 0 ||
+      ttsManager.isStreaming
     );
     skipBtn.classList.toggle('hidden', !hasActivity);
   }

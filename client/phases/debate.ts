@@ -7,8 +7,8 @@ import { getConfig } from '../config';
 import { $, showToast, showPhase, scrollToBottom, safeJsonParse } from '../dom/helpers';
 import { apiClient } from '../api/client';
 import type { AppState } from '../state/app-state';
-import { startDebateAudio, stopDebateAudio, pauseDebateAudio, resumeDebateAudio, feedAudioText, finishDebateAudio } from '../tts/manager';
-import { startTTSStatusPoll, stopTTSStatusPoll } from '../dom/tts-ui';
+import { startDebateAudio, stopDebateAudio, pauseDebateAudio, resumeDebateAudio, feedAudioText, finishDebateAudio, ttsManager } from '../tts/manager';
+import { startTTSStatusPoll, stopTTSStatusPoll, updateTTSEnableButton } from '../dom/tts-ui';
 import { renderDebateProgress, updateDebateStatus, showRetryTurn, hideRetryTurn } from '../dom/debate-ui';
 import { runVerdict } from './verdict';
 import { transitionToJudgeSelect } from './judge-select';
@@ -60,7 +60,7 @@ export async function executeNextTurn(state: AppState) {
       contentEl.textContent = `Server error (${res.status}): ${errBody}`;
       contentEl.style.color = '#e74c3c';
       showToast(`Server error (${res.status}): ${errBody}`, 'error');
-      if (state.tts.enabled) stopDebateAudio(state);
+      if (state.tts.enabled) { stopDebateAudio(state); ttsManager.stopStreaming(activeSpeaker); updateTTSEnableButton(state); }
       state.isStreaming = false;
       stopTTSStatusPoll();
       updateDebateStatus(state);
@@ -71,6 +71,12 @@ export async function executeNextTurn(state: AppState) {
     const reader = res.body!.getReader();
     const decoder = new TextDecoder();
     let sseBuffer = '';
+
+    // Mark speaker as actively streaming so skip button stays visible
+    if (state.tts.enabled) {
+      ttsManager.startStreaming(activeSpeaker);
+      updateTTSEnableButton(state);
+    }
 
     while (true) {
       const { done, value } = await reader.read();
@@ -112,6 +118,8 @@ export async function executeNextTurn(state: AppState) {
               contentEl.innerHTML = marked.parse(fullContent);
 
               if (state.tts.enabled) {
+                ttsManager.stopStreaming(activeSpeaker);
+                updateTTSEnableButton(state);
                 finishDebateAudio(activeSpeaker);
               }
 
@@ -158,7 +166,7 @@ export async function executeNextTurn(state: AppState) {
               contentEl.textContent = `Error: ${d.error}`;
               contentEl.style.color = '#e74c3c';
               showToast('Error: ' + d.error!, 'error');
-              if (state.tts.enabled) await finishDebateAudio(activeSpeaker);
+              if (state.tts.enabled) { ttsManager.stopStreaming(activeSpeaker); updateTTSEnableButton(state); await finishDebateAudio(activeSpeaker); }
               state.isStreaming = false;
               stopTTSStatusPoll();
               updateDebateStatus(state);

@@ -65,6 +65,24 @@ export class RealtimeTTSManager {
   // Voice assignments: speaker key → Kokoro voice ID
   speakerVoices: Record<string, string> = {};
 
+  // Tracks whether a speaker is actively streaming text
+  private _streamingSpeakers: Set<SpeakerKey> = new Set();
+
+  /** Start tracking active streaming for a speaker */
+  startStreaming(speaker: SpeakerKey) {
+    this._streamingSpeakers.add(speaker);
+  }
+
+  /** Stop tracking active streaming for a speaker */
+  stopStreaming(speaker: SpeakerKey) {
+    this._streamingSpeakers.delete(speaker);
+  }
+
+  /** Check if any speaker is actively streaming */
+  get isStreaming(): boolean {
+    return this._streamingSpeakers.size > 0;
+  }
+
   constructor() {}
 
   private VOICE_POOL: string[] = [];
@@ -133,6 +151,10 @@ export class RealtimeTTSManager {
     const data = e.data;
 
     if (data.id && data.id !== this._activeId) {
+      // Stale result from skipped generation — free the worker
+      // and process any new items queued after the skip
+      this._workerBusy = false;
+      this._processGenerationQueue();
       return;
     }
 
@@ -296,6 +318,9 @@ export class RealtimeTTSManager {
       const check = () => {
         if (this._pendingGenerations.length === 0 && !this._workerBusy) {
           resolve();
+        } else if (this._pendingGenerations.length > 0 && !this._workerBusy) {
+          this._processGenerationQueue();
+          setTimeout(check, 50);
         } else {
           setTimeout(check, 50);
         }
@@ -366,6 +391,7 @@ export class RealtimeTTSManager {
    * Skip current audio: stop playback, clear queue and pending generations.
    * Keeps the sentence buffer intact so remaining streamed text continues
    * accumulating and will be flushed by finishStreaming at stream end.
+   * Keeps streaming state active so skip button stays visible.
    * Keeps the worker initialized and voice assignments intact for the next speaker.
    */
   skipToNextSpeaker() {
@@ -380,11 +406,12 @@ export class RealtimeTTSManager {
     // Clear audio queue and pending generations
     this.audioQueue = [];
     this._pendingGenerations = [];
-    this._workerBusy = false;
-    this._isPlaying = false;
+    // NOTE: _workerBusy is NOT cleared — let current worker task finish
+    // naturally; the stale message handler will free it and process new queue
     this._isPaused = false;
     // NOTE: sentenceBuffer is NOT cleared — remaining streamed text
     // keeps accumulating and will be flushed by finishStreaming()
+    // NOTE: streaming state is NOT cleared — skip button stays visible
   }
 
   get isPlaying(): boolean {
