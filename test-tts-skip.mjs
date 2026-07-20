@@ -1,14 +1,16 @@
 /**
- * Test-first TTS skip verification — audio generation continuity.
+ * Test-first TTS skip verification — button visibility.
  *
- * Both tests click skip at the same progress stage (2nd speaker's turn):
+ * Both tests click skip at 2nd speaker's turn (same progress stage):
  *   - Debate: skip during 2nd speaker (turn 2 of 6)
  *   - Verdict: skip during judge's turn (verdict streaming)
  *
- * Assertion in both: audio generation must CONTINUE after skip
- *   (new audio chunks queued from text that arrives after skip).
+ * Assertion: after skip + stream complete + flush, is the skip button
+ * still visible (clickable) or has it disappeared?
  *
- * Expected: debate PASS, verdict FAIL (proving the bug).
+ * Expected:
+ *   Debate: button stays visible ✅ (audio continues for remaining turns)
+ *   Verdict: button disappears ❌ (audio stops, button never returns)
  */
 
 import { chromium } from 'playwright';
@@ -21,11 +23,10 @@ const MOCK_PORT = 3001;
 const MOCK_SERVER = join(__dirname, 'dist/server/mock/index.js');
 const NON_KIOSK_ENV = { ...process.env, JUBILAI_KIOSK_MODE: '' };
 
-// ── Mock TTS Worker + AudioContext ────────────────────────────────────
 const MOCK_TTS_SCRIPT = `
 (function() {
   class MockWorker {
-    constructor() { this._listeners = []; }
+    constructor() { this._listeners = []; this.onmessage = null; }
     postMessage(data) {
       if (data.type === 'init') {
         setTimeout(() => this._emit({ type: 'ready', device: 'wasm', dtype: 'q4' }), 2);
@@ -36,10 +37,14 @@ const MOCK_TTS_SCRIPT = `
         }, 2);
       }
     }
-    _emit(data) { for (const fn of this._listeners) fn({ data }); }
+    _emit(data) {
+      const event = { data };
+      if (this.onmessage) this.onmessage(event);
+      for (const fn of this._listeners) fn(event);
+    }
     addEventListener(e, h) { if (e === 'message') this._listeners.push(h); }
     removeEventListener(e, h) { if (e === 'message') this._listeners = this._listeners.filter(x => x !== h); }
-    terminate() { this._listeners = []; }
+    terminate() { this._listeners = []; this.onmessage = null; }
     _fakeWav() {
       const b = new ArrayBuffer(48), v = new DataView(b);
       v.setUint32(0,0x52494646,true); v.setUint32(4,40,true); v.setUint32(8,0x57415645,true);
@@ -56,8 +61,8 @@ const MOCK_TTS_SCRIPT = `
     async decodeAudioData() { return { sampleRate:24000, length:1, duration:1/24000, getChannelData:()=>new Float32Array([0]) }; }
     createBufferSource() {
       return { buffer:null, connect:()=>{},
-        start(){ if(this.onended) setTimeout(()=>this.onended(),2); },
-        stop(){ if(this.onended) setTimeout(()=>this.onended(),2); },
+        start(){ if(this.onended) setTimeout(()=>this.onended(),5); },
+        stop(){ if(this.onended) setTimeout(()=>this.onended(),5); },
         onended:null };
     }
     async resume(){}
@@ -81,24 +86,9 @@ async function startMockServer() {
   return server;
 }
 
-function parseQueueCount(statusText) {
-  const m = statusText.match(/Queue:\s*(\d+)/);
-  return m ? parseInt(m[1]) : 0;
-}
-
-function parsePlayingCount(statusText) {
-  const m = statusText.match(/Playing:\s*(\d+)/);
-  return m ? parseInt(m[1]) : 0;
-}
-
-function parseBufferedCount(statusText) {
-  const m = statusText.match(/Buffered:\s*(\d+)/);
-  return m ? parseInt(m[1]) : 0;
-}
-
-// Total audio activity = queue + playing + buffered
-function totalActivity(statusText) {
-  return parseQueueCount(statusText) + parsePlayingCount(statusText) + parseBufferedCount(statusText);
+async function isBtnVisible(page, selector) {
+  const btn = page.locator(selector);
+  return btn.isVisible();
 }
 
 // ── Test 1: Debate skip at 2nd speaker ────────────────────────────────
@@ -108,7 +98,7 @@ async function testDebateSkip(page) {
   await page.goto(`http://localhost:${MOCK_PORT}`, { waitUntil: 'networkidle', timeout: 15000 });
   await page.waitForSelector('#phase-setup', { state: 'visible', timeout: 5000 });
 
-  // Setup with judge pre-configured
+  // No judge → stays in debate phase
   await page.fill('#statement', 'AI will surpass human intelligence by 2040');
   await page.fill('#endpointA', `http://localhost:${MOCK_PORT}`);
   await page.fill('#endpointB', `http://localhost:${MOCK_PORT}`);
@@ -118,11 +108,6 @@ async function testDebateSkip(page) {
   await page.waitForSelector('#modelsB', { state: 'visible', timeout: 5000 });
   await page.selectOption('#modelA', 'llama3.1:8b');
   await page.selectOption('#modelB', 'mistral:7b');
-  await page.fill('#endpointJudge', `http://localhost:${MOCK_PORT}`);
-  await page.click('#btnFetchJudge');
-  await page.waitForSelector('#modelsJudge', { state: 'visible', timeout: 5000 });
-  await page.selectOption('#judgeModelSelect', 'gemma:7b');
-
   await page.click('#btnStartDebate');
   await page.waitForSelector('#phase-debate', { state: 'visible', timeout: 10000 });
   await page.waitForFunction(
@@ -130,51 +115,44 @@ async function testDebateSkip(page) {
     {}, { timeout: 10000 }
   );
 
-  // Wait for 2nd speaker's turn to start (2 messages in debate stream)
+  // Wait for 2nd speaker's turn
   await page.waitForFunction(
     `document.querySelectorAll('#debateStream .message').length >= 2`,
     {}, { timeout: 30000 }
   );
-  console.log('  2nd speaker turn started (2/6 messages)');
+  console.log('  2nd speaker turn started (2/6)');
 
-  // Wait for skip button to be visible
+  // Wait for skip button visible
   await page.waitForFunction(
     `document.querySelector('#btnSkipTTS') && !document.querySelector('#btnSkipTTS').classList.contains('hidden')`,
     {}, { timeout: 10000 }
   );
-
-  // Capture TTS status BEFORE skip (at 2nd speaker)
-  const beforeStatus = await page.textContent('#ttsStatus');
-  const beforeActivity = totalActivity(beforeStatus);
-  console.log(`  Before skip: "${beforeStatus}"`);
-  console.log(`  Audio activity before: ${beforeActivity}`);
+  console.log('  Skip button visible before click');
 
   // Click skip
   await page.click('#btnSkipTTS');
   console.log('  Skip clicked');
 
-  // Wait for remaining turns (3-6) to complete
+  // Wait for all 6 debate turns
   await page.waitForFunction(
     `document.querySelectorAll('#debateStream .message').length >= 6`,
     {}, { timeout: 30000 }
   );
   console.log('  All 6 debate turns complete');
 
-  // Poll TTS status to catch activity from turns 3-6
-  let status = '';
-  for (let i = 0; i < 10; i++) {
-    status = await page.textContent('#ttsStatus').catch(() => '');
-    if (totalActivity(status) > beforeActivity) break;
-    await new Promise(r => setTimeout(r, 300));
-  }
-  const afterActivity = totalActivity(status);
-  console.log(`  After skip: "${status}"`);
-  console.log(`  Audio activity after: ${afterActivity}`);
+  // Wait a bit for TTS state to settle
+  await new Promise(r => setTimeout(r, 2000));
 
-  // Assertion: audio activity must have increased (new audio from turns 3-6)
-  const passed = afterActivity > beforeActivity;
-  console.log(`  ${passed ? '✅ PASS' : '❌ FAIL'}: Audio continued after skip (${beforeActivity} → ${afterActivity})`);
-  return passed;
+  // Check if skip button is still visible
+  const btnVisible = await isBtnVisible(page, '#btnSkipTTS');
+  const statusText = await page.textContent('#ttsStatus').catch(() => '');
+  console.log(`  TTS status: "${statusText}"`);
+  console.log(`  Skip button visible: ${btnVisible}`);
+
+  // Debate skip should keep button visible (audio continues for remaining turns)
+  const passed = btnVisible;
+  console.log(`  ${passed ? '✅ PASS: button stays visible' : '❌ FAIL: button disappeared'}`);
+  return { passed, btnVisible };
 }
 
 // ── Test 2: Verdict skip at judge's turn ──────────────────────────────
@@ -184,7 +162,7 @@ async function testVerdictSkip(page) {
   await page.goto(`http://localhost:${MOCK_PORT}`, { waitUntil: 'networkidle', timeout: 15000 });
   await page.waitForSelector('#phase-setup', { state: 'visible', timeout: 5000 });
 
-  // Setup WITHOUT judge (goes to judge-select after debate)
+  // No judge → judge-select after debate
   await page.fill('#statement', 'AI will surpass human intelligence by 2040');
   await page.fill('#endpointA', `http://localhost:${MOCK_PORT}`);
   await page.fill('#endpointB', `http://localhost:${MOCK_PORT}`);
@@ -194,56 +172,43 @@ async function testVerdictSkip(page) {
   await page.waitForSelector('#modelsB', { state: 'visible', timeout: 5000 });
   await page.selectOption('#modelA', 'llama3.1:8b');
   await page.selectOption('#modelB', 'mistral:7b');
-
   await page.click('#btnStartDebate');
   await page.waitForSelector('#phase-debate', { state: 'visible', timeout: 10000 });
-
-  // Wait for all 6 debate turns
   await page.waitForFunction(
     `document.querySelectorAll('#debateStream .message').length >= 6`,
     {}, { timeout: 30000 }
   );
   console.log('  All 6 debate turns complete');
 
-  // Wait for judge-select phase
   await page.waitForSelector('#phase-judge-select', { state: 'visible', timeout: 10000 });
   console.log('  Judge-select phase visible');
 
-  // Configure judge and start
   await page.fill('#endpointJudge2', `http://localhost:${MOCK_PORT}`);
   await page.click('#btnFetchJudge2');
   await page.waitForSelector('#modelsJudge2', { state: 'visible', timeout: 5000 });
   await page.selectOption('#judgeModelSelect2', 'gemma:7b');
   await page.click('#btnStartJudge2');
 
-  // Wait for verdict phase
   await page.waitForSelector('#phase-verdict', { state: 'visible', timeout: 10000 });
   console.log('  Verdict phase visible');
 
-  // Wait for verdict TTS to initialize
   await page.waitForFunction(
     `document.querySelector('#ttsStatusVerdict') && !document.querySelector('#ttsStatusVerdict').textContent.includes('Initializing')`,
     {}, { timeout: 10000 }
   );
 
-  // Wait for verdict streaming to start
   await page.waitForFunction(
     `document.querySelector('#verdictReasoning') && document.querySelector('#verdictReasoning').classList.contains('streaming')`,
     {}, { timeout: 10000 }
   );
   console.log('  Verdict (judge) turn started');
 
-  // Wait for verdict skip button to be visible
+  // Wait for skip button visible
   await page.waitForFunction(
     `document.querySelector('#btnSkipTTSVerdict') && !document.querySelector('#btnSkipTTSVerdict').classList.contains('hidden')`,
     {}, { timeout: 10000 }
   );
-
-  // Capture TTS status BEFORE skip (at judge's turn, same progress as 2nd speaker in debate)
-  const beforeStatus = await page.textContent('#ttsStatusVerdict').catch(() => '');
-  const beforeActivity = totalActivity(beforeStatus);
-  console.log(`  Before skip: "${beforeStatus}"`);
-  console.log(`  Audio activity before: ${beforeActivity}`);
+  console.log('  Skip button visible before click');
 
   // Click skip
   await page.click('#btnSkipTTSVerdict');
@@ -256,20 +221,29 @@ async function testVerdictSkip(page) {
   );
   console.log('  Verdict streaming complete');
 
-  // Wait for flush to process
+  // Wait for transcript to render (flush done)
+  await page.waitForFunction(
+    `document.querySelector('#transcriptStream .message')`,
+    {}, { timeout: 10000 }
+  );
+  console.log('  Transcript rendered (flush done)');
+
+  // Wait for TTS state to settle
   await new Promise(r => setTimeout(r, 2000));
 
-  // Check TTS status after flush
-  const afterStatus = await page.textContent('#ttsStatusVerdict').catch(() => '');
-  const afterActivity = totalActivity(afterStatus);
-  console.log(`  After skip+flush: "${afterStatus}"`);
-  console.log(`  Audio activity after: ${afterActivity}`);
+  const statusText = await page.textContent('#ttsStatusVerdict').catch(() => '');
+  console.log(`  TTS status: "${statusText}"`);
 
-  // Assertion: audio activity must have increased (new audio from flushed buffer)
-  // THIS SHOULD FAIL — proving the bug.
-  const passed = afterActivity > beforeActivity;
-  console.log(`  ${passed ? '✅ PASS' : '❌ FAIL'}: Audio continued after skip (${beforeActivity} → ${afterActivity})`);
-  return passed;
+  // Check if skip button is still visible
+  const btnVisible = await isBtnVisible(page, '#btnSkipTTSVerdict');
+  console.log(`  Skip button visible: ${btnVisible}`);
+
+  // Verdict skip should FAIL: button disappears (bug)
+  // Test passes only if button stays visible (bug is fixed)
+  const passed = btnVisible;
+  console.log(`  ${passed ? '✅ PASS: button stays visible (bug fixed)' : '❌ FAIL: button disappeared (bug confirmed)'}`);
+
+  return { passed, btnVisible };
 }
 
 // ── Main ──────────────────────────────────────────────────────────────
@@ -281,18 +255,16 @@ async function main() {
   const results = [];
 
   try {
-    // Test 1: Debate skip at 2nd speaker — should PASS
     const page1 = await browser.newPage();
     await page1.addInitScript(MOCK_TTS_SCRIPT);
     const r1 = await testDebateSkip(page1);
-    results.push({ name: 'Debate skip (2nd speaker)', passed: r1 });
+    results.push({ name: 'Debate skip (2nd speaker)', passed: r1.passed, btnVisible: r1.btnVisible });
     await page1.close();
 
-    // Test 2: Verdict skip at judge's turn — should FAIL (proving bug)
     const page2 = await browser.newPage();
     await page2.addInitScript(MOCK_TTS_SCRIPT);
     const r2 = await testVerdictSkip(page2);
-    results.push({ name: 'Verdict skip (judge\'s turn)', passed: r2 });
+    results.push({ name: 'Verdict skip (judge\'s turn)', passed: r2.passed, btnVisible: r2.btnVisible });
     await page2.close();
 
   } finally {
@@ -302,19 +274,17 @@ async function main() {
 
   console.log('\n=== RESULTS ===');
   for (const r of results) {
-    console.log(`  ${r.passed ? '✅' : '❌'} ${r.name}: ${r.passed ? 'PASS' : 'FAIL'}`);
+    console.log(`  ${r.passed ? '✅' : '❌'} ${r.name}: button ${r.btnVisible ? 'visible' : 'hidden'}`);
   }
 
-  const debatePassed = results[0].passed;
-  const verdictFailed = !results[1].passed;
-
-  if (debatePassed && verdictFailed) {
+  if (results[0].passed && !results[1].passed) {
     console.log('\n✅ Test pattern confirmed:');
-    console.log('   Debate skip works — audio continues after skip');
-    console.log('   Verdict skip broken — audio stops after skip');
-    console.log('   This proves the bug exists in the verdict phase.');
+    console.log('   Debate skip: button stays visible ✅');
+    console.log('   Verdict skip: button disappears ❌');
+    console.log('   Bug proven: after skip in verdict phase, the skip button');
+    console.log('   vanishes and never returns — user cannot skip again.');
   } else {
-    console.log('\n❌ Unexpected test results — pattern not matching expectation');
+    console.log('\n❌ Unexpected pattern');
     process.exit(1);
   }
 }
